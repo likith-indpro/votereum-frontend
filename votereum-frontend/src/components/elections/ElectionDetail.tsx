@@ -1,264 +1,274 @@
-import { useState, useEffect } from "react";
-import { useBlockchain } from "../../context/BlockchainContext";
-import CandidateAdditionForm from "./CandidateAdditionForm";
-import CandidateList from "./CandidateList";
+import { useState, useEffect } from 'react';
+import { useBlockchain } from '../../context/BlockchainContext';
+import CandidateList from './CandidateList';
 
 interface ElectionDetailProps {
   electionId: string;
   numericElectionId: number;
+  onBack: () => void;
 }
 
-interface Election {
-  title: string;
-  description: string;
-  startTime: number;
-  endTime: number;
-  finalized: boolean;
-  totalVotes: number;
-  creator: string;
-  candidateCount: number;
-}
-
-const ElectionDetail = ({
-  electionId,
-  numericElectionId,
-}: ElectionDetailProps) => {
-  const { getElection, finalizeElection, account } = useBlockchain();
-  const [election, setElection] = useState<Election | null>(null);
-  const [loading, setLoading] = useState(true);
+const ElectionDetail = ({ electionId, numericElectionId, onBack }: ElectionDetailProps) => {
+  const { getElection, getCandidates, hasVoted, vote } = useBlockchain();
+  const [election, setElection] = useState<any>(null);
+  const [candidates, setCandidates] = useState<any[]>([]);
+  const [selectedCandidate, setSelectedCandidate] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isVoting, setIsVoting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [finalizing, setFinalizing] = useState(false);
+  const [userHasVoted, setUserHasVoted] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchElection = async () => {
+    const fetchElectionDetails = async () => {
       try {
-        setLoading(true);
+        setIsLoading(true);
         const electionData = await getElection(electionId, numericElectionId);
         setElection(electionData);
-      } catch (err: any) {
-        console.error("Error fetching election:", err);
-        setError("Failed to load election details.");
+
+        // Check if user has voted
+        const voted = await hasVoted(electionId, numericElectionId);
+        setUserHasVoted(voted);
+
+        // Get candidates
+        const candidateData = await getCandidates(electionId, numericElectionId);
+        setCandidates(candidateData);
+      } catch (e) {
+        console.error("Failed to fetch election details:", e);
+        setError("Failed to load election details. Please try again later.");
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
 
-    fetchElection();
-  }, [getElection, electionId, numericElectionId, refreshKey]);
+    fetchElectionDetails();
+  }, [getElection, getCandidates, hasVoted, electionId, numericElectionId]);
 
-  const handleFinalizeElection = async () => {
+  const handleVote = async () => {
+    if (selectedCandidate === null) {
+      setError("Please select a candidate to vote for.");
+      return;
+    }
+
     try {
-      setFinalizing(true);
-      await finalizeElection(electionId, numericElectionId);
+      setIsVoting(true);
+      setError(null);
+      
+      await vote(electionId, numericElectionId, selectedCandidate);
+      
+      setSuccessMessage("Your vote has been recorded successfully!");
+      setUserHasVoted(true);
+      
       // Refresh election data
-      setRefreshKey((prev) => prev + 1);
-    } catch (err: any) {
-      console.error("Error finalizing election:", err);
-      setError("Failed to finalize election: " + err.message);
+      const updatedElection = await getElection(electionId, numericElectionId);
+      setElection(updatedElection);
+      
+      // Refresh candidates data
+      const updatedCandidates = await getCandidates(electionId, numericElectionId);
+      setCandidates(updatedCandidates);
+    } catch (e) {
+      console.error("Failed to cast vote:", e);
+      setError("Failed to cast your vote. Please try again later.");
     } finally {
-      setFinalizing(false);
+      setIsVoting(false);
     }
   };
 
-  const handleCandidateAdded = () => {
-    // Refresh election data
-    setRefreshKey((prev) => prev + 1);
+  const handleSelectCandidate = (candidateId: number) => {
+    setSelectedCandidate(candidateId);
   };
 
-  const handleVoteSuccess = () => {
-    // Refresh election data
-    setRefreshKey((prev) => prev + 1);
-  };
-
-  // Get election status
-  const getStatus = () => {
-    if (!election) return "Unknown";
-
-    const now = Math.floor(Date.now() / 1000);
-
-    if (election.finalized) return "Finalized";
-    if (now < election.startTime) return "Upcoming";
-    if (now >= election.startTime && now <= election.endTime) return "Active";
-    if (now > election.endTime) return "Ended";
-
-    return "Unknown";
-  };
-
-  const status = getStatus();
-  const isOwner =
-    election &&
-    account &&
-    election.creator.toLowerCase() === account.toLowerCase();
-  const canAddCandidates = status === "Upcoming" && isOwner;
-  const canFinalize =
-    (status === "Ended" || status === "Active") &&
-    isOwner &&
-    !election?.finalized;
-  const isActive = status === "Active" && !election?.finalized;
-
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="bg-white shadow-md rounded-lg p-6 animate-pulse">
-        <div className="h-8 bg-gray-200 rounded w-2/3 mb-4"></div>
-        <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-        <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-        <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
-        <div className="h-32 bg-gray-200 rounded mb-4"></div>
+      <div className="text-center py-12">
+        <div className="spinner-border animate-spin inline-block w-8 h-8 border-4 rounded-full text-blue-600 mb-4" role="status">
+          <span className="visually-hidden">Loading...</span>
+        </div>
+        <p className="text-gray-600">Loading election details...</p>
       </div>
     );
   }
 
-  if (error || !election) {
+  if (error) {
     return (
-      <div className="bg-white shadow-md rounded-lg p-6">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          {error || "Failed to load election details."}
-        </div>
-        <button
-          onClick={() => setRefreshKey((prev) => prev + 1)}
-          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-        >
-          Retry
+      <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
+        <p>{error}</p>
+      </div>
+    );
+  }
+
+  if (!election) {
+    return (
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8 text-center">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-yellow-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <h3 className="text-lg font-semibold mb-2">Election Not Found</h3>
+        <p className="text-gray-600 mb-4">The requested election could not be found.</p>
+        <button 
+          onClick={onBack}
+          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition duration-300"
+        ></button>
+          Back to Elections
         </button>
       </div>
     );
   }
 
+  const startDate = new Date(election.startTime * 1000);
+  const endDate = new Date(election.endTime * 1000);
+  const now = new Date();
+  
+  const isActive = now >= startDate && now <= endDate && !election.finalized;
+  const isUpcoming = now < startDate;
+  const isEnded = now > endDate || election.finalized;
+
   return (
-    <div className="space-y-6">
-      {/* Election Header */}
-      <div className="bg-white shadow-md rounded-lg p-6">
-        <div className="flex justify-between items-start">
-          <div>
-            <h2 className="text-2xl font-bold mb-2">{election.title}</h2>
+    <div>
+      <button 
+        onClick={onBack} 
+        className="flex items-center text-blue-600 hover:text-blue-800 mb-4"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z" clipRule="evenodd" />
+        </svg>
+        Back to Elections
+      </button>
 
-            <div className="mb-4">
-              <span
-                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
-                  ${
-                    status === "Active"
-                      ? "bg-green-100 text-green-800"
-                      : status === "Upcoming"
-                        ? "bg-blue-100 text-blue-800"
-                        : status === "Ended"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : "bg-gray-100 text-gray-800"
-                  }`}
-              >
-                {status}
-              </span>
-
-              <span className="ml-2 text-sm text-gray-500">
-                Total Votes: {election.totalVotes}
-              </span>
+      <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 mb-6">
+        <div className="p-6">
+          <div className="flex justify-between items-start mb-4">
+            <h2 className="text-2xl font-bold">{election.title}</h2>
+            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+              isActive ? 'bg-green-100 text-green-800' : 
+              isUpcoming ? 'bg-blue-100 text-blue-800' :
+              'bg-gray-100 text-gray-800'
+            }`}>
+              {isActive ? 'Active' : isUpcoming ? 'Upcoming' : 'Ended'}
+            </span>
+          </div>
+          
+          <p className="text-gray-600 mb-6">{election.description}</p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Election Details</h3>
+              <div className="space-y-2">
+                <div className="flex items-center text-sm">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"></svg>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span><strong>Start Date:</strong> {startDate.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center text-sm">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span><strong>End Date:</strong> {endDate.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center text-sm">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  <span><strong>Candidates:</strong> {election.candidateCount}</span>
+                </div>
+              </div>
             </div>
-
-            <p className="text-gray-700 mb-4">{election.description}</p>
-
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="font-medium">Start Date:</span>{" "}
-                {new Date(election.startTime * 1000).toLocaleString()}
-              </div>
-              <div>
-                <span className="font-medium">End Date:</span>{" "}
-                {new Date(election.endTime * 1000).toLocaleString()}
-              </div>
-              <div>
-                <span className="font-medium">Election ID:</span>{" "}
-                <span className="font-mono text-xs">
-                  {electionId.substring(0, 10)}...
-                </span>
-              </div>
-              <div>
-                <span className="font-medium">Creator:</span>{" "}
-                <span className="font-mono text-xs">
-                  {election.creator.substring(0, 10)}...
-                </span>
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Voting Summary</h3>
+              <div className="space-y-2">
+                <div className="flex items-center text-sm">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                  <span><strong>Total Votes:</strong> {election.totalVotes}</span>
+                </div>
+                <div className="flex items-center text-sm">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                  <span><strong>Status:</strong> {election.finalized ? 'Finalized' : 'In Progress'}</span>
+                </div>
+                <div className="flex items-center text-sm">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  <span><strong>Your Status:</strong> {userHasVoted ? 'Voted' : 'Not Voted'}</span>
+                </div>
               </div>
             </div>
           </div>
-
-          {canFinalize && (
-            <button
-              onClick={handleFinalizeElection}
-              disabled={finalizing}
-              className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded disabled:bg-gray-300 disabled:cursor-not-allowed"
-            >
-              {finalizing ? "Finalizing..." : "Finalize Election"}
-            </button>
-          )}
         </div>
       </div>
 
-      {/* Add Candidate Form (only for election creator and only before the election starts) */}
-      {canAddCandidates && (
-        <CandidateAdditionForm
-          electionId={electionId}
-          numericElectionId={numericElectionId}
-          onSuccess={handleCandidateAdded}
-        />
+      {successMessage && (
+        <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6" role="alert">
+          <p>{successMessage}</p>
+        </div>
       )}
 
-      {/* Candidate List */}
-      <CandidateList
-        electionId={electionId}
-        numericElectionId={numericElectionId}
-        isFinalized={election.finalized}
-        onVoteSuccess={handleVoteSuccess}
-      />
+      <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 mb-6">
+        <div className="p-6">
+          <h3 className="text-xl font-bold mb-4">Candidates</h3>
+          <CandidateList 
+            candidates={candidates} 
+            selectedCandidate={selectedCandidate} 
+            onSelectCandidate={handleSelectCandidate}
+            showVotes={isEnded || election.finalized}
+            disableSelection={userHasVoted || !isActive}
+          />
 
-      {/* Election Timeline */}
-      <div className="bg-white shadow-md rounded-lg p-6">
-        <h3 className="text-xl font-bold mb-4">Election Timeline</h3>
+          {isActive && !userHasVoted && (
+            <div className="mt-6">
+              <button
+                onClick={handleVote}
+                disabled={isVoting || selectedCandidate === null}
+                className={`w-full py-2 px-4 rounded font-bold ${
+                  isVoting || selectedCandidate === null
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-green-500 hover:bg-green-700 text-white transition duration-300'
+                }`}
+              >
+                {isVoting ? 'Submitting Vote...' : 'Submit Vote'}
+              </button>
+              {selectedCandidate === null && (
+                <p className="text-sm text-gray-500 mt-2 text-center">Select a candidate to vote</p>
+              )}
+            </div>
+          )}
 
-        <div className="relative">
-          <div className="absolute left-0 inset-y-0 w-1 bg-gray-200 rounded"></div>
+          {!isActive && isUpcoming && (
+            <div className="mt-6 bg-blue-50 border border-blue-200 rounded-md p-4">
+              <p className="text-center text-blue-700">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block mr-1" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                </svg>
+                This election has not started yet. Voting begins on {startDate.toLocaleDateString()}.
+              </p>
+            </div>
+          )}
 
-          <ul className="space-y-6 relative z-10">
-            <li className="pl-6 relative">
-              <div
-                className={`absolute left-0 -translate-x-1/2 w-4 h-4 rounded-full ${status !== "Upcoming" ? "bg-green-500" : "bg-gray-400"}`}
-              ></div>
-              <div className="font-medium">Creation</div>
-              <div className="text-sm text-gray-500">
-                Election created on the blockchain
-              </div>
-            </li>
+          {userHasVoted && isActive && (
+            <div className="mt-6 bg-green-50 border border-green-200 rounded-md p-4">
+              <p className="text-center text-green-700">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block mr-1" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                You have already cast your vote for this election.
+              </p>
+            </div>
+          )}
 
-            <li className="pl-6 relative">
-              <div
-                className={`absolute left-0 -translate-x-1/2 w-4 h-4 rounded-full ${status !== "Upcoming" ? "bg-green-500" : "bg-gray-400"}`}
-              ></div>
-              <div className="font-medium">Voting Begins</div>
-              <div className="text-sm text-gray-500">
-                {new Date(election.startTime * 1000).toLocaleString()}
-              </div>
-            </li>
-
-            <li className="pl-6 relative">
-              <div
-                className={`absolute left-0 -translate-x-1/2 w-4 h-4 rounded-full ${status === "Ended" || status === "Finalized" ? "bg-green-500" : "bg-gray-400"}`}
-              ></div>
-              <div className="font-medium">Voting Ends</div>
-              <div className="text-sm text-gray-500">
-                {new Date(election.endTime * 1000).toLocaleString()}
-              </div>
-            </li>
-
-            <li className="pl-6 relative">
-              <div
-                className={`absolute left-0 -translate-x-1/2 w-4 h-4 rounded-full ${election.finalized ? "bg-green-500" : "bg-gray-400"}`}
-              ></div>
-              <div className="font-medium">Results Finalized</div>
-              <div className="text-sm text-gray-500">
-                {election.finalized
-                  ? "Election results have been finalized"
-                  : "Pending finalization by the election creator"}
-              </div>
-            </li>
-          </ul>
+          {isEnded && (
+            <div className="mt-6 bg-gray-50 border border-gray-200 rounded-md p-4">
+              <p className="text-center text-gray-700">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block mr-1" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z" clipRule="evenodd" />
+                </svg>
+                This election has ended. Results are displayed above.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
