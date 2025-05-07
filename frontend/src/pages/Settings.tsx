@@ -98,6 +98,7 @@ const Settings = () => {
                 <button
                   type="button"
                   onClick={() => setDarkMode(!darkMode)}
+                  aria-label={`${darkMode ? "Disable" : "Enable"} dark mode`}
                   className={`${
                     darkMode ? "bg-blue-600" : "bg-gray-200"
                   } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none`}
@@ -123,6 +124,7 @@ const Settings = () => {
                 <button
                   type="button"
                   onClick={() => setNotifications(!notifications)}
+                  aria-label={`${notifications ? "Disable" : "Enable"} notifications`}
                   className={`${
                     notifications ? "bg-blue-600" : "bg-gray-200"
                   } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none`}
@@ -148,6 +150,7 @@ const Settings = () => {
                 <button
                   type="button"
                   onClick={() => setPrivacyMode(!privacyMode)}
+                  aria-label={`${privacyMode ? "Disable" : "Enable"} privacy mode`}
                   className={`${
                     privacyMode ? "bg-blue-600" : "bg-gray-200"
                   } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none`}

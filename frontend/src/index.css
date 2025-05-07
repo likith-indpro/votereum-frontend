@@ -1,1 +1,17 @@
 @import "tailwindcss";
+
+/* Global styles for full-screen layout */
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+}

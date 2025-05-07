@@ -43,7 +43,7 @@ function App() {
   // Render loading state if blockchain connection is still initializing
   if (!isInitialized) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="h-screen w-screen flex items-center justify-center bg-gray-100">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Connecting to blockchain...</p>
@@ -62,8 +62,8 @@ function App() {
             walletAddress ? (
               <Navigate to="/dashboard" replace />
             ) : (
-              <div className="min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
-                <div className="max-w-md mx-auto">
+              <div className="h-screen w-screen bg-gray-100 flex items-center justify-center overflow-hidden">
+                <div className="max-w-md w-full p-6">
                   <header className="text-center mb-8">
                     <h1 className="text-3xl font-bold text-gray-900 mb-2">
                       Votereum
@@ -102,7 +102,7 @@ function App() {
         <Route
           path="*"
           element={
-            <div className="min-h-screen flex items-center justify-center bg-gray-100">
+            <div className="h-screen w-screen flex items-center justify-center bg-gray-100">
               <div className="text-center">
                 <h1 className="text-4xl font-bold text-gray-800 mb-4">404</h1>
                 <p className="text-lg text-gray-600 mb-6">Page not found</p>
