@@ -145,7 +145,13 @@ export const authenticateWithMetaMask = async (): Promise<LoginResponse> => {
   }
 
   try {
-    // Request account access
+    // Force MetaMask to show the account selection modal by clearing any cached permissions
+    await window.ethereum.request({
+      method: "wallet_requestPermissions",
+      params: [{ eth_accounts: {} }],
+    });
+
+    // Now request account access - this should show the account selection modal
     const accounts = await window.ethereum.request({
       method: "eth_requestAccounts",
     });
@@ -263,7 +269,13 @@ export const linkMetaMaskToAccount = async (): Promise<User> => {
   }
 
   try {
-    // Request account access
+    // Force MetaMask to show the account selection modal by clearing any cached permissions
+    await window.ethereum.request({
+      method: "wallet_requestPermissions",
+      params: [{ eth_accounts: {} }],
+    });
+
+    // Request account access - this will show the account selection dialog
     const accounts = await window.ethereum.request({
       method: "eth_requestAccounts",
     });
@@ -373,6 +385,52 @@ export const refreshToken = async (): Promise<string> => {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
     throw new Error("Session expired. Please log in again.");
+  }
+};
+
+/**
+ * Request a password reset email
+ */
+export const requestPasswordReset = async (email: string): Promise<boolean> => {
+  try {
+    // Directus expects a POST to /auth/password/request with the email
+    await api.post("/auth/password/request", {
+      email: email,
+    });
+
+    return true;
+  } catch (error: any) {
+    console.error("Error requesting password reset:", error);
+    throw new Error(
+      error.response?.data?.errors?.[0]?.message ||
+        error.response?.data?.message ||
+        "Failed to request password reset"
+    );
+  }
+};
+
+/**
+ * Reset password using token from email
+ */
+export const resetPassword = async (
+  token: string,
+  newPassword: string
+): Promise<boolean> => {
+  try {
+    // Directus expects a POST to /auth/password/reset with token and new password
+    await api.post("/auth/password/reset", {
+      token: token,
+      password: newPassword,
+    });
+
+    return true;
+  } catch (error: any) {
+    console.error("Error resetting password:", error);
+    throw new Error(
+      error.response?.data?.errors?.[0]?.message ||
+        error.response?.data?.message ||
+        "Failed to reset password"
+    );
   }
 };
 

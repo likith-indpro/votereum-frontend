@@ -5,7 +5,9 @@ import {
   updateUserProfile,
   linkMetaMaskToAccount,
   disconnectWallet,
+  requestPasswordReset,
 } from "../utils/auth";
+import type { User } from "../utils/auth";
 
 const Settings = () => {
   // User profile state
@@ -23,6 +25,11 @@ const Settings = () => {
     last_name: "",
     email: "",
   });
+
+  // Password reset modal state
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [requestingReset, setRequestingReset] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
 
   // App preferences state
   const [darkMode, setDarkMode] = useState(false);
@@ -133,6 +140,47 @@ const Settings = () => {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Request password reset
+  const handleRequestPasswordReset = async () => {
+    if (!user?.email) {
+      setMessage({
+        text: "No email address found for your account",
+        type: "error",
+      });
+      return;
+    }
+
+    setRequestingReset(true);
+
+    try {
+      await requestPasswordReset(user.email);
+      setResetEmailSent(true);
+
+      // Clear message after 5 seconds
+      setTimeout(() => {
+        setPasswordModalOpen(false);
+        setResetEmailSent(false);
+        setMessage(null);
+      }, 5000);
+    } catch (error: any) {
+      setMessage({
+        text: error.message || "Failed to request password reset",
+        type: "error",
+      });
+    } finally {
+      setRequestingReset(false);
+    }
+  };
+
+  // Connect or disconnect wallet
+  const handleWalletAction = async () => {
+    if (user?.ethereum_address) {
+      await handleDisconnectWallet();
+    } else {
+      await handleConnectWallet();
     }
   };
 
@@ -346,30 +394,6 @@ const Settings = () => {
               </div>
 
               {/* Privacy Mode Toggle */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    Privacy Mode
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Hide your voting activity from other users
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setPrivacyMode(!privacyMode)}
-                  aria-label={`${privacyMode ? "Disable" : "Enable"} privacy mode`}
-                  className={`${
-                    privacyMode ? "bg-blue-600" : "bg-gray-200"
-                  } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none`}
-                >
-                  <span
-                    className={`${
-                      privacyMode ? "translate-x-5" : "translate-x-0"
-                    } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
-                  />
-                </button>
-              </div>
             </div>
           </div>
 
@@ -377,11 +401,11 @@ const Settings = () => {
           <div className="mb-6">
             <h3 className="text-lg font-medium text-gray-700 mb-3">Security</h3>
             <div className="space-y-4">
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
-                Change Password
-              </button>
-              <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors">
-                Enable Two-Factor Authentication
+              <button
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                onClick={() => setPasswordModalOpen(true)}
+              >
+                Reset Password
               </button>
             </div>
           </div>
@@ -416,6 +440,66 @@ const Settings = () => {
           </div>
         </div>
       </div>
+
+      {/* Change Password Modal */}
+      {passwordModalOpen && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-md overflow-hidden w-full max-w-sm">
+            <div className="p-6">
+              <h3 className="text-lg font-medium text-gray-800 mb-4">
+                Reset Password
+              </h3>
+
+              {resetEmailSent ? (
+                <div className="mb-4 p-3 rounded-md bg-green-50 text-green-800">
+                  A password reset link has been sent to your email address.
+                </div>
+              ) : (
+                <div className="mb-4 p-3 rounded-md bg-red-50 text-red-800">
+                  {message?.text}
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div>
+                  <label
+                    htmlFor="email"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    id="email"
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    disabled
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end space-x-3">
+                <button
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                  onClick={() => setPasswordModalOpen(false)}
+                >
+                  Close
+                </button>
+                {!resetEmailSent && (
+                  <button
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                    onClick={handleRequestPasswordReset}
+                    disabled={requestingReset}
+                  >
+                    {requestingReset ? "Sending..." : "Send Reset Link"}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 };
