@@ -5,14 +5,7 @@ import { ethers } from "ethers";
 const API_URL =
   import.meta.env.VITE_DIRECTUS_API_URL || "http://localhost:8055";
 
-// Types
-export interface LoginResponse {
-  access_token: string;
-  refresh_token: string;
-  expires: number;
-  user: User;
-}
-
+// Types defined locally to avoid import errors
 export interface User {
   id: string;
   first_name: string;
@@ -25,12 +18,11 @@ export interface User {
   avatar?: string;
 }
 
-// Make sure this is explicitly exported
-export interface AuthState {
-  user: User | null;
-  accessToken: string | null;
-  refreshToken: string | null;
-  isAuthenticated: boolean;
+export interface LoginResponse {
+  access_token: string;
+  refresh_token: string;
+  expires: number;
+  user: User;
 }
 
 // Setup axios instance for API calls
@@ -296,6 +288,45 @@ export const linkMetaMaskToAccount = async (): Promise<User> => {
     throw new Error(
       error.response?.data?.errors?.[0]?.message ||
         "Failed to link MetaMask wallet"
+    );
+  }
+};
+
+/**
+ * Update the current user's profile information
+ */
+export const updateUserProfile = async (
+  userData: Partial<User>
+): Promise<User> => {
+  try {
+    const response = await api.patch("/users/me", userData);
+    return response.data.data;
+  } catch (error: any) {
+    console.error("Error updating user profile:", error);
+    throw new Error(
+      error.response?.data?.errors?.[0]?.message ||
+        error.response?.data?.message ||
+        "Failed to update profile"
+    );
+  }
+};
+
+/**
+ * Disconnect a MetaMask wallet from an account
+ */
+export const disconnectWallet = async (): Promise<User> => {
+  try {
+    const response = await api.patch("/users/me", {
+      ethereum_address: null,
+    });
+
+    localStorage.removeItem("walletAddress");
+    return response.data.data;
+  } catch (error: any) {
+    console.error("Error disconnecting wallet:", error);
+    throw new Error(
+      error.response?.data?.errors?.[0]?.message ||
+        "Failed to disconnect wallet"
     );
   }
 };
