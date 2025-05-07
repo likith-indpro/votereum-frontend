@@ -9,9 +9,12 @@ body,
   margin: 0;
   padding: 0;
   overflow: hidden;
+  /* Reverting to hidden for the container */
 }
 
 #root {
   display: flex;
   flex-direction: column;
+  min-height: 100vh;
+  /* Ensure it takes at least full viewport height */
 }

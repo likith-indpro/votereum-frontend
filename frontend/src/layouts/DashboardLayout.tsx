@@ -102,10 +102,10 @@ const DashboardLayout = () => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen w-screen overflow-hidden bg-gray-100">
       {/* Sidebar */}
       <motion.div
-        className="bg-[#1A2538] h-screen overflow-hidden flex flex-col"
+        className="bg-[#1A2538] h-full overflow-hidden flex flex-col"
         animate={isSidebarOpen ? "open" : "closed"}
         variants={sidebarVariants}
       >
