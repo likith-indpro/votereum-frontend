@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   HomeIcon,
@@ -10,6 +10,8 @@ import {
   ArrowRightOnRectangleIcon,
   ChevronLeftIcon,
 } from "@heroicons/react/24/outline";
+import { useAuth } from "../context/AuthContext";
+import { linkMetaMaskToAccount } from "../utils/auth";
 
 interface NavItem {
   name: string;
@@ -20,16 +22,13 @@ interface NavItem {
 const DashboardLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { authState, signOut, linkWallet } = useAuth();
 
-  // Get wallet address from localStorage if it exists
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
-
-  useEffect(() => {
-    const storedAddress = localStorage.getItem("walletAddress");
-    if (storedAddress) {
-      setWalletAddress(storedAddress);
-    }
-  }, []);
+  // Get user information from auth context
+  const { user } = authState;
+  const walletAddress =
+    user?.ethereum_address || localStorage.getItem("walletAddress");
 
   // Navigation items
   const navItems: NavItem[] = [
@@ -64,149 +63,241 @@ const DashboardLayout = () => {
     },
   ];
 
+  // Handle user logout
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/login");
+  };
+
+  // Handle linking wallet
+  const handleLinkWallet = async () => {
+    try {
+      await linkWallet();
+      // Show success message or update UI
+      alert("Wallet linked successfully!");
+    } catch (error) {
+      console.error("Failed to link wallet:", error);
+      alert("Failed to link wallet. Please try again.");
+    }
+  };
+
   // Animation variants for the sidebar
   const sidebarVariants = {
-    open: { width: "260px" },
-    closed: { width: "64px" },
+    open: {
+      width: "240px",
+      transition: {
+        type: "spring",
+        stiffness: 400,
+        damping: 40,
+      },
+    },
+    closed: {
+      width: "72px",
+      transition: {
+        type: "spring",
+        stiffness: 400,
+        damping: 40,
+      },
+    },
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden fixed inset-0 m-0 p-0">
+    <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
       <motion.div
-        variants={sidebarVariants}
+        className="bg-[#1A2538] h-screen overflow-hidden flex flex-col"
         animate={isSidebarOpen ? "open" : "closed"}
-        transition={{ duration: 0.3, ease: "easeInOut" }}
-        className="bg-[#18222F] text-white h-full flex flex-col shadow-lg border-r border-[#253649]"
+        variants={sidebarVariants}
       >
         {/* Logo */}
-        <div className="p-4 flex items-center justify-center border-b border-[#253649] h-16">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="text-xl font-semibold text-white"
-          >
-            {isSidebarOpen ? "VOTEREUM" : "V"}
-          </motion.div>
-        </div>
-
-        {/* Navigation Items */}
-        <div className="flex-1 py-3 flex flex-col gap-1 px-2">
-          {navItems.map((item) => (
-            <Link to={item.path} key={item.name}>
-              <motion.div
-                whileHover={{ backgroundColor: "#253649" }}
-                whileTap={{ scale: 0.98 }}
-                className={`flex items-center gap-3 py-2 px-3 rounded-md ${
-                  location.pathname === item.path
-                    ? "bg-[#2D4865] text-[#66B0FF]"
-                    : "text-[#A2B5CD] hover:text-white"
-                } transition-all`}
-              >
-                <div
-                  className={
-                    location.pathname === item.path
-                      ? "text-[#66B0FF]"
-                      : "text-[#A2B5CD]"
-                  }
-                >
-                  {item.icon}
-                </div>
-                {isSidebarOpen && (
-                  <motion.span
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.1 }}
-                    className="font-medium text-sm"
-                  >
-                    {item.name}
-                  </motion.span>
-                )}
-              </motion.div>
-            </Link>
-          ))}
-        </div>
-
-        {/* Bottom Section - Settings and Profile */}
-        <div className="py-3 flex flex-col gap-1 px-2 border-t border-[#253649]">
-          {bottomNavItems.map((item) => (
-            <Link to={item.path} key={item.name}>
-              <motion.div
-                whileHover={{ backgroundColor: "#253649" }}
-                whileTap={{ scale: 0.98 }}
-                className={`flex items-center gap-3 py-2 px-3 rounded-md ${
-                  location.pathname === item.path
-                    ? "bg-[#2D4865] text-[#66B0FF]"
-                    : "text-[#A2B5CD] hover:text-white"
-                } transition-all`}
-              >
-                <div
-                  className={
-                    location.pathname === item.path
-                      ? "text-[#66B0FF]"
-                      : "text-[#A2B5CD]"
-                  }
-                >
-                  {item.icon}
-                </div>
-                {isSidebarOpen && (
-                  <motion.span
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.1 }}
-                    className="font-medium text-sm"
-                  >
-                    {item.name}
-                  </motion.span>
-                )}
-              </motion.div>
-            </Link>
-          ))}
-
-          {/* Wallet Address Display */}
-          {walletAddress && isSidebarOpen && (
-            <div className="mt-3 mx-2 px-3 py-2 bg-[#253649] rounded-md text-xs text-[#A2B5CD] truncate">
-              {walletAddress.substring(0, 6)}...
-              {walletAddress.substring(walletAddress.length - 4)}
+        <div className="p-4">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold">
+                V
+              </div>
             </div>
-          )}
+            {isSidebarOpen && (
+              <motion.h1
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.1 }}
+                className="ml-2 text-xl font-semibold text-white"
+              >
+                Votereum
+              </motion.h1>
+            )}
+          </div>
+        </div>
 
-          {/* Toggle Button */}
-          <div className="mt-3 px-2">
-            <motion.button
+        {/* Navigation Section */}
+        <div className="flex-1 flex flex-col justify-between py-4 overflow-y-auto">
+          {/* Main Navigation */}
+          <nav className="px-2 space-y-1">
+            {navItems.map((item) => (
+              <Link to={item.path} key={item.name}>
+                <motion.div
+                  whileHover={{ backgroundColor: "#253649" }}
+                  whileTap={{ scale: 0.98 }}
+                  className={`flex items-center px-2 py-3 rounded-md space-x-3 ${
+                    location.pathname === item.path
+                      ? "bg-[#2D4865] text-[#66B0FF]"
+                      : "text-[#A2B5CD] hover:text-white"
+                  } transition-all`}
+                >
+                  <div
+                    className={
+                      location.pathname === item.path
+                        ? "text-[#66B0FF]"
+                        : "text-[#A2B5CD]"
+                    }
+                  >
+                    {item.icon}
+                  </div>
+                  {isSidebarOpen && (
+                    <motion.span
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.1 }}
+                      className="font-medium text-sm"
+                    >
+                      {item.name}
+                    </motion.span>
+                  )}
+                </motion.div>
+              </Link>
+            ))}
+          </nav>
+
+          {/* Bottom Navigation */}
+          <div className="space-y-1 px-2">
+            {/* User Display */}
+            {user && (
+              <div
+                className={`mb-2 px-2 py-2 ${isSidebarOpen ? "text-left" : "text-center"}`}
+              >
+                {isSidebarOpen ? (
+                  <div>
+                    <p className="text-gray-300 text-xs font-medium">
+                      Signed in as
+                    </p>
+                    <p className="text-white text-sm truncate font-medium">
+                      {user.first_name} {user.last_name}
+                    </p>
+                    <p className="text-gray-400 text-xs truncate">
+                      {user.email}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="h-8 w-8 rounded-full bg-blue-600 mx-auto flex items-center justify-center text-white font-bold">
+                    {user.first_name.charAt(0)}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Wallet Address Display */}
+            {walletAddress ? (
+              isSidebarOpen && (
+                <div className="mt-3 mx-2 px-3 py-2 bg-[#253649] rounded-md text-xs text-[#A2B5CD] truncate">
+                  {walletAddress.substring(0, 6)}...
+                  {walletAddress.substring(walletAddress.length - 4)}
+                </div>
+              )
+            ) : (
+              <button
+                onClick={handleLinkWallet}
+                className="w-full flex items-center justify-center px-2 py-2 text-xs text-[#A2B5CD] bg-[#253649] rounded-md hover:bg-[#2D4865] transition-colors"
+              >
+                {isSidebarOpen ? "Connect Wallet" : "⚡"}
+              </button>
+            )}
+
+            {/* Settings */}
+            {bottomNavItems.map((item) => (
+              <Link to={item.path} key={item.name}>
+                <motion.div
+                  whileHover={{ backgroundColor: "#253649" }}
+                  whileTap={{ scale: 0.98 }}
+                  className={`flex items-center px-2 py-3 rounded-md space-x-3 ${
+                    location.pathname === item.path
+                      ? "bg-[#2D4865] text-[#66B0FF]"
+                      : "text-[#A2B5CD] hover:text-white"
+                  } transition-all`}
+                >
+                  <div
+                    className={
+                      location.pathname === item.path
+                        ? "text-[#66B0FF]"
+                        : "text-[#A2B5CD]"
+                    }
+                  >
+                    {item.icon}
+                  </div>
+                  {isSidebarOpen && (
+                    <motion.span
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.1 }}
+                      className="font-medium text-sm"
+                    >
+                      {item.name}
+                    </motion.span>
+                  )}
+                </motion.div>
+              </Link>
+            ))}
+
+            {/* Logout Button */}
+            <motion.div
               whileHover={{ backgroundColor: "#253649" }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="w-full flex items-center justify-center p-2 rounded-md bg-transparent text-[#A2B5CD] hover:text-white border border-[#253649]"
-              aria-label={isSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
+              onClick={handleLogout}
+              className="flex items-center px-2 py-3 rounded-md space-x-3 text-[#A2B5CD] hover:text-white cursor-pointer transition-all"
             >
-              <ChevronLeftIcon
-                className={`w-5 h-5 transition-transform ${
-                  isSidebarOpen ? "" : "rotate-180"
-                }`}
-              />
-            </motion.button>
+              <ArrowRightOnRectangleIcon className="w-5 h-5" />
+              {isSidebarOpen && (
+                <motion.span
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.1 }}
+                  className="font-medium text-sm"
+                >
+                  Logout
+                </motion.span>
+              )}
+            </motion.div>
+
+            {/* Toggle Button */}
+            <div className="mt-3 px-2">
+              <motion.button
+                whileHover={{ backgroundColor: "#253649" }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                className="w-full flex items-center justify-center p-2 rounded-md bg-transparent text-[#A2B5CD] hover:text-white border border-[#253649]"
+                aria-label={
+                  isSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"
+                }
+              >
+                <ChevronLeftIcon
+                  className={`w-5 h-5 transition-transform ${
+                    !isSidebarOpen && "transform rotate-180"
+                  }`}
+                />
+              </motion.button>
+            </div>
           </div>
         </div>
       </motion.div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 overflow-auto bg-[#F5F7FA] w-full h-full">
-        {/* Header */}
-        <header className="h-16 bg-white border-b border-gray-200 px-6 flex items-center shadow-sm">
-          <h1 className="text-lg font-medium text-gray-800">
-            {navItems.find((item) => item.path === location.pathname)?.name ||
-              bottomNavItems.find((item) => item.path === location.pathname)
-                ?.name ||
-              "Dashboard"}
-          </h1>
-        </header>
-
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Content */}
-        <div className="p-6 h-[calc(100%-4rem)]">
-          <Outlet />
-        </div>
+        <main className="flex-1 overflow-y-auto bg-gray-50 px-4 py-8 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto">
+            <Outlet />
+          </div>
+        </main>
       </div>
     </div>
   );

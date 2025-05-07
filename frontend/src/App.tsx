@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { connectProvider } from "./utils/contract";
-import Register from "./components/Register";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import Login from "./components/Login";
+import Signup from "./components/Signup";
+import Register from "./components/Register"; // Import Register component
 import DashboardLayout from "./layouts/DashboardLayout";
 import Dashboard from "./pages/Dashboard";
 import Elections from "./pages/Elections";
@@ -10,9 +13,31 @@ import Results from "./pages/Results";
 import Settings from "./pages/Settings";
 import "./App.css";
 
-function App() {
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+// Protected route wrapper component
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { authState, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!authState.isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+};
+
+function AppContent() {
   const [isInitialized, setIsInitialized] = useState(false);
+  const { authState } = useAuth();
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -20,12 +45,6 @@ function App() {
         // Initialize the provider connection when app loads
         await connectProvider();
         setIsInitialized(true);
-
-        // Check if wallet address is in local storage
-        const savedAddress = localStorage.getItem("walletAddress");
-        if (savedAddress) {
-          setWalletAddress(savedAddress);
-        }
       } catch (error) {
         console.error("Failed to initialize blockchain connection:", error);
       }
@@ -33,12 +52,6 @@ function App() {
 
     initializeApp();
   }, []);
-
-  const handleWalletConnected = (address: string) => {
-    setWalletAddress(address);
-    // Save wallet address to localStorage
-    localStorage.setItem("walletAddress", address);
-  };
 
   // Render loading state if blockchain connection is still initializing
   if (!isInitialized) {
@@ -53,70 +66,140 @@ function App() {
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Landing/Login Route */}
-        <Route
-          path="/"
-          element={
-            walletAddress ? (
-              <Navigate to="/dashboard" replace />
-            ) : (
-              <div className="h-screen w-screen bg-gray-100 flex items-center justify-center overflow-hidden">
-                <div className="max-w-md w-full p-6">
-                  <header className="text-center mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                      Votereum
-                    </h1>
-                    <p className="text-gray-600">
-                      Secure blockchain-based voting system
-                    </p>
-                  </header>
-                  <Register onWalletConnected={handleWalletConnected} />
-                  <footer className="mt-12 text-center text-sm text-gray-500">
-                    <p>
-                      &copy; {new Date().getFullYear()} Votereum. All rights
-                      reserved.
-                    </p>
-                  </footer>
-                </div>
+    <Routes>
+      {/* Public Routes */}
+      <Route
+        path="/login"
+        element={
+          authState.isAuthenticated ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <div className="h-screen w-screen bg-gray-100 flex items-center justify-center overflow-hidden">
+              <div className="max-w-md w-full p-6">
+                <header className="text-center mb-8">
+                  <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                    Votereum
+                  </h1>
+                  <p className="text-gray-600">
+                    Secure blockchain-based voting system
+                  </p>
+                </header>
+                <Login />
               </div>
-            )
-          }
-        />
+            </div>
+          )
+        }
+      />
 
-        {/* Dashboard Routes (Protected) */}
-        <Route
-          element={
-            walletAddress ? <DashboardLayout /> : <Navigate to="/" replace />
-          }
-        >
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/elections" element={<Elections />} />
-          <Route path="/vote" element={<VotePage />} />
-          <Route path="/results" element={<Results />} />
-          <Route path="/settings" element={<Settings />} />
-        </Route>
+      <Route
+        path="/signup"
+        element={
+          authState.isAuthenticated ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <div className="h-screen w-screen bg-gray-100 flex items-center justify-center overflow-hidden">
+              <div className="max-w-md w-full p-6">
+                <header className="text-center mb-8">
+                  <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                    Votereum
+                  </h1>
+                  <p className="text-gray-600">
+                    Secure blockchain-based voting system
+                  </p>
+                </header>
+                <Signup />
+              </div>
+            </div>
+          )
+        }
+      />
 
-        {/* 404 Route */}
-        <Route
-          path="*"
-          element={
-            <div className="h-screen w-screen flex items-center justify-center bg-gray-100">
-              <div className="text-center">
-                <h1 className="text-4xl font-bold text-gray-800 mb-4">404</h1>
-                <p className="text-lg text-gray-600 mb-6">Page not found</p>
+      {/* Add Register route */}
+      <Route
+        path="/register"
+        element={
+          authState.isAuthenticated ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <div className="h-screen w-screen bg-gray-100 flex items-center justify-center overflow-hidden">
+              <div className="max-w-md w-full p-6">
+                <header className="text-center mb-8">
+                  <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                    Votereum
+                  </h1>
+                  <p className="text-gray-600">
+                    Secure blockchain-based voting system
+                  </p>
+                </header>
+                <Register
+                  onWalletConnected={(address) => {
+                    console.log("Wallet connected:", address);
+                    localStorage.setItem("walletAddress", address);
+                  }}
+                />
+              </div>
+            </div>
+          )
+        }
+      />
+
+      {/* Redirect root to either dashboard or login */}
+      <Route
+        path="/"
+        element={
+          authState.isAuthenticated ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+
+      {/* Protected Routes */}
+      <Route
+        element={
+          <ProtectedRoute>
+            <DashboardLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/elections" element={<Elections />} />
+        <Route path="/vote" element={<VotePage />} />
+        <Route path="/results" element={<Results />} />
+        <Route path="/settings" element={<Settings />} />
+      </Route>
+
+      {/* 404 Route */}
+      <Route
+        path="*"
+        element={
+          <div className="h-screen w-screen flex items-center justify-center bg-gray-100">
+            <div className="text-center">
+              <h1 className="text-6xl font-bold text-gray-800">404</h1>
+              <p className="text-xl text-gray-600 mt-2">Page not found</p>
+              <div className="mt-6">
                 <a
                   href="/"
-                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                 >
                   Go Home
                 </a>
               </div>
             </div>
-          }
-        />
-      </Routes>
+          </div>
+        }
+      />
+    </Routes>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
     </BrowserRouter>
   );
 }

@@ -15,6 +15,17 @@ export const connectProvider = async () => {
   try {
     // Connect to the Ethereum network
     provider = new ethers.JsonRpcProvider(ganacheNetwork);
+
+    // Check if we have a private key in localStorage
+    const privateKey = localStorage.getItem("votereumPrivateKey");
+    if (privateKey) {
+      // If we have a private key, create a signer from it
+      signer = new ethers.Wallet(privateKey, provider);
+
+      // Initialize the contract with the signer
+      votingContract = new ethers.Contract(contractAddress, VotingAbi, signer);
+    }
+
     return provider;
   } catch (error) {
     console.error("Error connecting to Ethereum provider:", error);
@@ -73,6 +84,24 @@ export const switchToGanacheNetwork = async () => {
 // Connect wallet and get signer
 export const connectWallet = async () => {
   try {
+    // First check if we already have a private key in localStorage
+    const privateKey = localStorage.getItem("votereumPrivateKey");
+    if (privateKey) {
+      if (!provider) {
+        await connectProvider();
+      }
+
+      // Create a wallet instance with the private key
+      const wallet = new ethers.Wallet(privateKey, provider);
+      signer = wallet;
+
+      // Initialize the contract with the signer
+      votingContract = new ethers.Contract(contractAddress, VotingAbi, signer);
+
+      return { address: await wallet.getAddress(), signer: wallet };
+    }
+
+    // If no private key in localStorage, try to use MetaMask
     // Check if ethereum is available in the browser
     if (!window.ethereum) {
       throw new Error(
@@ -122,6 +151,33 @@ export const connectWallet = async () => {
   }
 };
 
+// Get the current connected wallet address
+export const getCurrentWalletAddress = async (): Promise<string | null> => {
+  try {
+    // First check if we have a private key in localStorage
+    const privateKey = localStorage.getItem("votereumPrivateKey");
+    if (privateKey) {
+      if (!provider) {
+        await connectProvider();
+      }
+      const wallet = new ethers.Wallet(privateKey, provider);
+      return wallet.address;
+    }
+
+    // If no private key, check if we have an address in localStorage (for MetaMask)
+    const savedAddress = localStorage.getItem("walletAddress");
+    if (savedAddress) {
+      return savedAddress;
+    }
+
+    // If no address saved, we're not connected
+    return null;
+  } catch (error) {
+    console.error("Error getting current wallet:", error);
+    return null;
+  }
+};
+
 // Get all candidates
 export const getCandidates = async () => {
   try {
@@ -160,10 +216,16 @@ export const getCandidates = async () => {
 // Vote for a candidate
 export const voteForCandidate = async (candidateId: number) => {
   try {
-    if (!votingContract) {
-      throw new Error(
-        "Contract not initialized. Please connect your wallet first."
-      );
+    // Ensure we have a signer (either from localStorage or MetaMask)
+    if (!signer) {
+      // Try to reconnect
+      await connectWallet();
+
+      if (!votingContract) {
+        throw new Error(
+          "Contract not initialized. Please connect your wallet first."
+        );
+      }
     }
 
     // Call the vote function on the contract
@@ -177,6 +239,19 @@ export const voteForCandidate = async (candidateId: number) => {
     console.error("Error voting for candidate:", error);
     throw error;
   }
+};
+
+// Disconnect wallet
+export const disconnectWallet = () => {
+  // Clear wallet from localStorage
+  localStorage.removeItem("votereumPrivateKey");
+  localStorage.removeItem("walletAddress");
+
+  // Reset provider state
+  signer = undefined as any;
+  votingContract = undefined as any;
+
+  return true;
 };
 
 // Declare window.ethereum for TypeScript
