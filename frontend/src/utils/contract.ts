@@ -288,22 +288,12 @@ export const getCandidates = async () => {
 // Create a new election
 export const createElection = async (
   title: string,
-  description: string,
-  startTime: number, // Unix timestamp
-  endTime: number, // Unix timestamp
-  minimumAge: number,
-  maxVotesPerUser: number,
-  enforceKYC: boolean
+  description: string
 ) => {
   try {
     console.log("createElection called with:", {
       title,
-      description,
-      startTime,
-      endTime,
-      minimumAge,
-      maxVotesPerUser,
-      enforceKYC,
+      description
     });
 
     // Ensure we have a signer
@@ -349,12 +339,7 @@ export const createElection = async (
     // Call the createElection function on the factory contract
     const tx = await factoryContract.createElection(
       title,
-      description,
-      startTime,
-      endTime,
-      minimumAge,
-      maxVotesPerUser,
-      enforceKYC
+      description
     );
 
     console.log("Transaction submitted:", tx.hash);
@@ -364,24 +349,43 @@ export const createElection = async (
     const receipt = await tx.wait();
     console.log("Transaction confirmed:", receipt);
 
-    // Try to get the election ID from the event logs
-    let electionId;
+    // Try to get the election address from the event logs
+    let electionAddress;
     if (receipt && receipt.logs) {
-      const eventTopic = ethers.id("ElectionCreated(uint256,string)");
-      const eventLog = receipt.logs.find((log) => log.topics[0] === eventTopic);
-
-      if (eventLog) {
-        // Parse the election ID from the event
-        electionId = Number(ethers.toNumber(eventLog.topics[1]));
-        console.log("Election ID parsed:", electionId);
-      } else {
-        console.log("Could not find ElectionCreated event in logs");
+      try {
+        // Find the ElectionCreated event
+        const abi = VotereumFactoryAbi.abi;
+        const iface = new ethers.Interface(abi);
+        
+        for (const log of receipt.logs) {
+          try {
+            const parsedLog = iface.parseLog({
+              topics: log.topics as string[],
+              data: log.data
+            });
+            
+            if (parsedLog && parsedLog.name === 'ElectionCreated') {
+              electionAddress = parsedLog.args[0];
+              console.log("Election address parsed:", electionAddress);
+              break;
+            }
+          } catch (e) {
+            // Not a matching log, continue to next one
+            continue;
+          }
+        }
+        
+        if (!electionAddress) {
+          console.log("Could not find ElectionCreated event in logs");
+        }
+      } catch (parseError) {
+        console.error("Error parsing logs:", parseError);
       }
     }
 
     return {
       transactionHash: tx.hash,
-      electionId,
+      electionAddress
     };
   } catch (error) {
     console.error("Error creating election:", error);
@@ -391,9 +395,10 @@ export const createElection = async (
 
 // Add a candidate to an election
 export const addCandidate = async (
-  electionId: number,
+  electionAddress: string,
   name: string,
-  description: string
+  party: string,
+  imageUrl: string
 ) => {
   try {
     // Ensure we have a signer
@@ -401,63 +406,103 @@ export const addCandidate = async (
       await connectWallet();
     }
 
-    if (!factoryContract) {
-      throw new Error(
-        "Factory contract not initialized. Please connect your wallet first."
-      );
-    }
-
-    // Call the addCandidate function on the factory contract
-    const tx = await factoryContract.addCandidate(
-      electionId,
-      name,
-      description
+    // Create an instance of the Voting contract at the election address
+    const electionContract = new ethers.Contract(
+      electionAddress,
+      VotingAbi.abi,
+      signer
     );
+
+    // Call the addCandidate function on the Voting contract
+    const tx = await electionContract.addCandidate(
+      name,
+      party,
+      imageUrl
+    );
+
+    console.log("Add candidate transaction submitted:", tx.hash);
 
     // Wait for the transaction to be mined
     const receipt = await tx.wait();
+    console.log("Add candidate transaction confirmed:", receipt);
+
+    // Try to extract candidate ID from event
+    let candidateId;
+    if (receipt && receipt.logs) {
+      try {
+        const abi = VotingAbi.abi;
+        const iface = new ethers.Interface(abi);
+        
+        for (const log of receipt.logs) {
+          try {
+            const parsedLog = iface.parseLog({
+              topics: log.topics as string[],
+              data: log.data
+            });
+            
+            if (parsedLog && parsedLog.name === 'CandidateAdded') {
+              candidateId = Number(parsedLog.args[0]);
+              console.log("Candidate ID parsed:", candidateId);
+              break;
+            }
+          } catch (e) {
+            // Not a matching log, continue to next one
+            continue;
+          }
+        }
+      } catch (parseError) {
+        console.error("Error parsing logs:", parseError);
+      }
+    }
 
     return {
       transactionHash: tx.hash,
-      success: true,
+      candidateId,
+      success: true
     };
   } catch (error) {
-    console.error(`Error adding candidate to election ${electionId}:`, error);
+    console.error(`Error adding candidate to election at ${electionAddress}:`, error);
     throw error;
   }
 };
 
-// Get election details from the blockchain
-export const getElectionDetails = async (electionId: number) => {
+// Get election details from a specific Voting contract
+export const getElectionDetails = async (electionAddress: string) => {
   try {
     if (!provider) {
       await connectProvider();
     }
 
-    // Create a read-only contract instance if no signer is available
-    const contract =
-      factoryContract ||
-      new ethers.Contract(factoryAddress, VotereumFactoryAbi.abi, provider);
+    // Create a contract instance for the specific election
+    const electionContract = new ethers.Contract(
+      electionAddress,
+      VotingAbi.abi,
+      provider
+    );
 
-    // Get the election details
-    const details = await contract.getElectionDetails(electionId);
+    // Get the basic election details
+    const electionName = await electionContract.electionName();
+    const electionDescription = await electionContract.electionDescription();
+    const startTime = await electionContract.startTime();
+    const endTime = await electionContract.endTime();
+    const isActive = await electionContract.isActive();
+    const totalVotes = await electionContract.totalVotes();
+    const candidateCount = await electionContract.candidateCount();
 
     // Format the return value
     return {
-      title: details[0],
-      description: details[1],
-      startTime: Number(details[2]) * 1000, // Convert to milliseconds
-      endTime: Number(details[3]) * 1000, // Convert to milliseconds
-      state: Number(details[4]),
-      totalVotes: Number(details[5]),
-      candidateCount: Number(details[6]),
-      minimumAge: Number(details[7]),
-      maxVotesPerUser: Number(details[8]),
-      enforceKYC: details[9],
+      title: electionName,
+      description: electionDescription,
+      startTime: Number(startTime) * 1000, // Convert to milliseconds
+      endTime: Number(endTime) * 1000, // Convert to milliseconds
+      isActive,
+      totalVotes: Number(totalVotes),
+      candidateCount: Number(candidateCount),
+      hasEnded: await electionContract.hasEnded()
     };
   } catch (error) {
     console.error(
-      `Error getting election details for ID ${electionId}:`,
+      `Error getting election details for address ${electionAddress}:`,
       error
     );
     throw error;
@@ -465,155 +510,119 @@ export const getElectionDetails = async (electionId: number) => {
 };
 
 // Get candidates for a specific election from the blockchain
-export const getElectionCandidates = async (electionId: number) => {
+export const getElectionCandidates = async (electionAddress: string) => {
   try {
     if (!provider) {
       await connectProvider();
     }
 
-    const contract =
-      factoryContract ||
-      new ethers.Contract(factoryAddress, VotereumFactoryAbi.abi, provider);
-
-    // Get the election results which include candidates
-    const results = await contract.getElectionResults(electionId);
-
-    const candidateIds = results[0].map((id: ethers.BigNumberish) =>
-      Number(id)
+    // Create an instance of the Voting contract at the election address
+    const electionContract = new ethers.Contract(
+      electionAddress,
+      VotingAbi.abi,
+      provider
     );
-    const voteCounts = results[1].map((count: ethers.BigNumberish) =>
-      Number(count)
-    );
-    const candidateNames = results[2];
 
-    // Format candidates
-    return candidateIds.map((id: number, index: number) => ({
-      id: id,
-      name: candidateNames[index],
-      voteCount: voteCounts[index],
-    }));
+    // Get the number of candidates
+    const candidateCount = await electionContract.candidateCount();
+    const candidates = [];
+
+    // Loop through all candidates and retrieve their details
+    for (let i = 1; i <= Number(candidateCount); i++) {
+      const [id, name, party, imageUrl, voteCount] = await electionContract.getCandidate(i);
+      candidates.push({
+        id: Number(id),
+        name: name,
+        party: party,
+        imageUrl: imageUrl,
+        voteCount: Number(voteCount)
+      });
+    }
+
+    return candidates;
   } catch (error) {
     console.error(
-      `Error getting candidates for election ${electionId}:`,
+      `Error getting candidates for election at ${electionAddress}:`,
       error
     );
     return []; // Return empty array on error
   }
 };
 
-// Start an election
-export const startElection = async (electionId: number) => {
-  try {
-    // Ensure we have a signer
-    if (!signer) {
-      await connectWallet();
-    }
-
-    if (!factoryContract) {
-      throw new Error(
-        "Factory contract not initialized. Please connect your wallet first."
-      );
-    }
-
-    // Call the startElection function on the factory contract
-    const tx = await factoryContract.startElection(electionId);
-
-    // Wait for the transaction to be mined
-    await tx.wait();
-
-    return { success: true, transactionHash: tx.hash };
-  } catch (error) {
-    console.error(`Error starting election ${electionId}:`, error);
-    throw error;
-  }
-};
-
-// End an election
-export const endElection = async (electionId: number) => {
-  try {
-    // Ensure we have a signer
-    if (!signer) {
-      await connectWallet();
-    }
-
-    if (!factoryContract) {
-      throw new Error(
-        "Factory contract not initialized. Please connect your wallet first."
-      );
-    }
-
-    // Call the endElection function on the factory contract
-    const tx = await factoryContract.endElection(electionId);
-
-    // Wait for the transaction to be mined
-    await tx.wait();
-
-    return { success: true, transactionHash: tx.hash };
-  } catch (error) {
-    console.error(`Error ending election ${electionId}:`, error);
-    throw error;
-  }
-};
-
-// Vote for a candidate in an election
-export const voteInElection = async (
-  electionId: number,
-  candidateId: number
-) => {
-  try {
-    // Ensure we have a signer
-    if (!signer) {
-      await connectWallet();
-    }
-
-    if (!factoryContract) {
-      throw new Error(
-        "Factory contract not initialized. Please connect your wallet first."
-      );
-    }
-
-    // Call the vote function on the factory contract
-    const tx = await factoryContract.vote(electionId, candidateId);
-
-    // Wait for the transaction to be mined
-    await tx.wait();
-
-    return { success: true, transactionHash: tx.hash };
-  } catch (error) {
-    console.error(
-      `Error voting in election ${electionId} for candidate ${candidateId}:`,
-      error
-    );
-    throw error;
-  }
-};
-
-// Check if a user has voted in an election
-export const hasVotedInElection = async (
-  voterAddress: string,
-  electionId: number
-) => {
+// Get all elections deployed by the factory contract
+export const getAllElections = async () => {
   try {
     if (!provider) {
       await connectProvider();
     }
 
-    const contract =
-      factoryContract ||
+    const contract = factoryContract || 
       new ethers.Contract(factoryAddress, VotereumFactoryAbi.abi, provider);
 
-    // Call the hasVoted function
-    const hasVoted = await contract.hasVoted(voterAddress, electionId);
-
-    return hasVoted;
+    // Get all deployed elections
+    const deployedElections = await contract.getDeployedElections();
+    
+    // Format the results
+    return deployedElections;
   } catch (error) {
-    console.error(
-      `Error checking if ${voterAddress} has voted in election ${electionId}:`,
-      error
+    console.error("Error getting all elections:", error);
+    return []; // Return empty array on error
+  }
+};
+
+// Check if a voter has voted in a specific election
+export const hasVoted = async (electionAddress: string, voterAddress: string) => {
+  try {
+    if (!provider) {
+      await connectProvider();
+    }
+
+    // Create an instance of the Voting contract at the election address
+    const electionContract = new ethers.Contract(
+      electionAddress,
+      VotingAbi.abi,
+      provider
     );
+
+    // Get the voter information
+    const voter = await electionContract.voters(voterAddress);
+    
+    // Return whether the voter has already voted
+    return voter.hasVoted;
+  } catch (error) {
+    console.error(`Error checking if ${voterAddress} has voted in election at ${electionAddress}:`, error);
     return false; // Assume not voted on error
   }
 };
+
+// Register a voter for a specific election
+export const registerVoter = async (electionAddress: string, voterAddress: string) => {
+  try {
+    // Ensure we have a signer
+    if (!signer) {
+      await connectWallet();
+    }
+    
+    // Create an instance of the Voting contract at the election address
+    const electionContract = new ethers.Contract(
+      electionAddress,
+      VotingAbi.abi,
+      signer
+    );
+    
+    // Register the voter
+    const tx = await electionContract.registerVoter(voterAddress);
+    
+    // Wait for the transaction to be mined
+    const receipt = await tx.wait();
+    
+    return { success: true, transactionHash: tx.hash };
+  } catch (error) {
+    console.error(`Error registering voter ${voterAddress} for election at ${electionAddress}:`, error);
+    throw error;
+  }
+};
+
 
 // Disconnect wallet
 export const disconnectWallet = () => {
