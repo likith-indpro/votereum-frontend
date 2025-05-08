@@ -75,17 +75,7 @@ function AppContent() {
             <Navigate to="/dashboard" replace />
           ) : (
             <div className="h-screen w-screen bg-gray-100 flex items-center justify-center overflow-hidden">
-              <div className="max-w-md w-full p-6">
-                <header className="text-center mb-8">
-                  <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                    Votereum
-                  </h1>
-                  <p className="text-gray-600">
-                    Secure blockchain-based voting system
-                  </p>
-                </header>
-                <Login />
-              </div>
+              <Login />
             </div>
           )
         }
@@ -98,17 +88,7 @@ function AppContent() {
             <Navigate to="/dashboard" replace />
           ) : (
             <div className="h-screen w-screen bg-gray-100 flex items-center justify-center overflow-hidden">
-              <div className="max-w-md w-full p-6">
-                <header className="text-center mb-8">
-                  <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                    Votereum
-                  </h1>
-                  <p className="text-gray-600">
-                    Secure blockchain-based voting system
-                  </p>
-                </header>
-                <Signup />
-              </div>
+              <Signup />
             </div>
           )
         }
@@ -121,23 +101,13 @@ function AppContent() {
           authState.isAuthenticated ? (
             <Navigate to="/dashboard" replace />
           ) : (
-            <div className="h-screen w-screen bg-gray-100 flex items-center justify-center overflow-hidden">
-              <div className="max-w-md w-full p-6">
-                <header className="text-center mb-8">
-                  <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                    Votereum
-                  </h1>
-                  <p className="text-gray-600">
-                    Secure blockchain-based voting system
-                  </p>
-                </header>
-                <Register
-                  onWalletConnected={(address) => {
-                    console.log("Wallet connected:", address);
-                    localStorage.setItem("walletAddress", address);
-                  }}
-                />
-              </div>
+            <div className=" min-w-2xl bg-gray-100 flex items-center justify-center overflow-hidden">
+              <Register
+                onWalletConnected={(address) => {
+                  console.log("Wallet connected:", address);
+                  localStorage.setItem("walletAddress", address);
+                }}
+              />
             </div>
           )
         }

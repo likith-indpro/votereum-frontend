@@ -231,414 +231,299 @@ const Register = ({ onWalletConnected }: RegisterProps) => {
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
-      {/* Page Title */}
-      <h2 className="text-2xl font-bold mb-4">Create Your Votereum Account</h2>
-
-      {/* Error and Success Messages */}
-      {error && (
-        <div
-          className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4"
-          role="alert"
-        >
-          <span className="block sm:inline">{error}</span>
-        </div>
-      )}
-
-      {success && (
-        <div
-          className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4"
-          role="alert"
-        >
-          <span className="block sm:inline">{success}</span>
-        </div>
-      )}
-
-      {/* Step 1: User Information */}
-      {step === "userInfo" && (
-        <form onSubmit={handleRegister} className="space-y-4">
-          <p className="mb-4 text-gray-700">
-            Enter your information to create a Votereum account.
+    <div className="flex  min-h-[600px] mt-20 min-w-2xl bg-white rounded-xl shadow-lg overflow-hidden">
+      {/* Left side - Background */}
+      <div
+        className={`w-0 md:w-1/2 bg-gradient-to-br from-blue-500 to-blue-700 p-12 flex-col justify-center items-center hidden md:flex transition-all duration-700 transform ${
+          true ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0"
+        }`}
+      >
+        <div className="text-center">
+          <h2 className="text-4xl font-bold text-white mb-6">
+            Create Your Votereum Account
+          </h2>
+          <p className="text-blue-100 text-lg mb-8">
+            Secure voting with blockchain. Let's get you started.
           </p>
+        </div>
+      </div>
 
-          {/* Name Fields */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label
-                htmlFor="firstName"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                First Name
-              </label>
-              <input
-                id="firstName"
-                type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                required
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="lastName"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Last Name
-              </label>
-              <input
-                id="lastName"
-                type="text"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                required
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              />
-            </div>
+      {/* Right side - Registration Form */}
+      <div
+        className={`w-full md:w-1/2 p-8 md:p-12 transition-all duration-700 transform ${
+          true ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"
+        }`}
+      >
+        {/* Page Title */}
+        <h2 className="text-2xl font-bold mb-4">
+          Create Your Votereum Account
+        </h2>
+
+        {/* Error and Success Messages */}
+        {error && (
+          <div
+            className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4"
+            role="alert"
+          >
+            <span className="block sm:inline">{error}</span>
           </div>
+        )}
 
-          {/* Email Field */}
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              Email Address
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              placeholder="you@example.com"
-            />
+        {success && (
+          <div
+            className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4"
+            role="alert"
+          >
+            <span className="block sm:inline">{success}</span>
           </div>
+        )}
 
-          {/* Password Field */}
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              placeholder="••••••••"
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              Must be at least 8 characters
+        {/* Step 1: User Information */}
+        {step === "userInfo" && (
+          <form onSubmit={handleRegister} className="space-y-4">
+            <p className="mb-4 text-gray-700">
+              Enter your information to create a Votereum account.
             </p>
-          </div>
 
-          {/* Confirm Password Field */}
-          <div>
-            <label
-              htmlFor="confirmPassword"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              Confirm Password
-            </label>
-            <input
-              id="confirmPassword"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              placeholder="••••••••"
-            />
-          </div>
-
-          {/* Submit Button */}
-          <div className="pt-4">
-            <button
-              type="submit"
-              disabled={isRegistering}
-              className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
-                isRegistering ? "opacity-70 cursor-not-allowed" : ""
-              }`}
-            >
-              {isRegistering ? "Creating Account..." : "Create Account"}
-            </button>
-          </div>
-
-          {/* Sign In Link */}
-          <div className="mt-4 text-center">
-            <p className="text-sm text-gray-600">
-              Already have an account?{" "}
-              <Link
-                to="/login"
-                className="font-medium text-blue-600 hover:text-blue-500"
-              >
-                Sign in
-              </Link>
-            </p>
-          </div>
-        </form>
-      )}
-
-      {/* Step 2: Wallet Connection */}
-      {step === "wallet" && (
-        <div>
-          <p className="mb-4 text-gray-700">
-            Connect or create a wallet to use with Votereum. This will allow you
-            to vote securely on the blockchain.
-          </p>
-
-          {/* Registration Method Selector */}
-          <div className="mb-6">
-            <div className="flex flex-wrap gap-2 mb-4">
-              <button
-                onClick={() => setRegistrationMethod("metamask")}
-                className={`px-3 py-2 text-sm font-medium rounded-md ${
-                  registrationMethod === "metamask"
-                    ? "bg-blue-100 text-blue-700 border-blue-200 border"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-              >
-                MetaMask
-              </button>
-              <button
-                onClick={() => setRegistrationMethod("generate")}
-                className={`px-3 py-2 text-sm font-medium rounded-md ${
-                  registrationMethod === "generate"
-                    ? "bg-blue-100 text-blue-700 border-blue-200 border"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-              >
-                Generate New Wallet
-              </button>
-              <button
-                onClick={() => setRegistrationMethod("import")}
-                className={`px-3 py-2 text-sm font-medium rounded-md ${
-                  registrationMethod === "import"
-                    ? "bg-blue-100 text-blue-700 border-blue-200 border"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-              >
-                Import Private Key
-              </button>
-              <button
-                onClick={() => setRegistrationMethod("skip")}
-                className={`px-3 py-2 text-sm font-medium rounded-md ${
-                  registrationMethod === "skip"
-                    ? "bg-blue-100 text-blue-700 border-blue-200 border"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-              >
-                Skip for Now
-              </button>
-            </div>
-          </div>
-
-          {/* MetaMask Connection */}
-          {registrationMethod === "metamask" && (
-            <>
-              {isMetaMaskInstalled === false && (
-                <div className="mb-6">
-                  <div
-                    className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4"
-                    role="alert"
-                  >
-                    <p className="font-bold">MetaMask is not installed</p>
-                    <p>You need MetaMask to interact with this application.</p>
-                  </div>
-
-                  <a
-                    href="https://metamask.io/download/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded flex justify-center items-center mb-4"
-                  >
-                    Download MetaMask
-                  </a>
-
-                  <ol className="list-decimal list-inside text-sm text-gray-700 mb-4 space-y-2">
-                    <li>Install the MetaMask browser extension</li>
-                    <li>Create a new wallet or import an existing one</li>
-                    <li>
-                      Connect to the Ganache network (Chain ID: 1337, RPC URL:
-                      http://127.0.0.1:8545)
-                    </li>
-                    <li>Import a Ganache account using its private key</li>
-                    <li>Refresh this page</li>
-                  </ol>
-                </div>
-              )}
-
-              <button
-                onClick={handleConnectWallet}
-                disabled={isConnecting || isMetaMaskInstalled === false}
-                className={`w-full ${
-                  isMetaMaskInstalled === false
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-blue-600 hover:bg-blue-700"
-                } text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-150 ease-in-out`}
-              >
-                {isConnecting ? "Connecting..." : "Connect MetaMask"}
-              </button>
-
-              {isMetaMaskInstalled && (
-                <div className="mt-4 text-sm text-gray-600">
-                  <p>Click the button above to connect your MetaMask wallet.</p>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* Generate New Wallet */}
-          {registrationMethod === "generate" && (
-            <>
-              <div className="mb-4 text-sm text-gray-700">
-                <p>
-                  Generate a new wallet with a random private key. This will be
-                  stored in your browser and used for voting.{" "}
-                  <strong>Make sure to back up your private key!</strong>
-                </p>
-              </div>
-
-              <button
-                onClick={generateNewWallet}
-                disabled={isGeneratingWallet}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-150 ease-in-out"
-              >
-                {isGeneratingWallet ? "Generating..." : "Generate New Wallet"}
-              </button>
-
-              {walletAddress && localStorage.getItem("votereumPrivateKey") && (
-                <div className="mt-4">
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Your Private Key
-                    </label>
-                    <button
-                      onClick={() => setShowPrivateKey(!showPrivateKey)}
-                      className="text-xs text-blue-600 hover:text-blue-800"
-                      type="button"
-                    >
-                      {showPrivateKey ? "Hide" : "Show"}
-                    </button>
-                  </div>
-                  <div className="mt-1 relative">
-                    <input
-                      type={showPrivateKey ? "text" : "password"}
-                      className="block w-full p-2 border border-gray-300 rounded-md bg-gray-50 text-sm"
-                      value={localStorage.getItem("votereumPrivateKey") || ""}
-                      readOnly
-                      title="Your private key"
-                      placeholder="Your private key will appear here"
-                      aria-label="Your private key"
-                    />
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(
-                          localStorage.getItem("votereumPrivateKey") || ""
-                        );
-                        alert("Private key copied to clipboard");
-                      }}
-                      className="absolute inset-y-0 right-0 px-3 bg-gray-100 hover:bg-gray-200 border-l border-gray-300 rounded-r-md flex items-center text-sm font-medium text-gray-600"
-                      type="button"
-                    >
-                      Copy
-                    </button>
-                  </div>
-                  <p className="mt-1 text-xs text-red-600">
-                    Never share your private key with anyone! Back it up
-                    securely.
-                  </p>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* Import Private Key */}
-          {registrationMethod === "import" && (
-            <>
-              <div className="mb-4 text-sm text-gray-700">
-                <p>
-                  Import an existing wallet by entering your private key. This
-                  will be stored in your browser and used for voting.
-                </p>
-              </div>
-
-              <div className="mb-4">
+            {/* Name Fields */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
                 <label
-                  htmlFor="privateKey"
+                  htmlFor="firstName"
                   className="block text-sm font-medium text-gray-700 mb-1"
                 >
-                  Private Key
+                  First Name
                 </label>
-                <div className="mt-1 relative">
-                  <input
-                    id="privateKey"
-                    type={showPrivateKey ? "text" : "password"}
-                    placeholder="Enter your private key (with or without 0x prefix)"
-                    value={importedPrivateKey}
-                    onChange={(e) => setImportedPrivateKey(e.target.value)}
-                    className="block w-full p-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <button
-                    onClick={() => setShowPrivateKey(!showPrivateKey)}
-                    className="absolute inset-y-0 right-0 px-3 bg-gray-100 hover:bg-gray-200 border-l border-gray-300 rounded-r-md flex items-center text-sm font-medium text-gray-600"
-                    type="button"
-                  >
-                    {showPrivateKey ? "Hide" : "Show"}
-                  </button>
-                </div>
+                <input
+                  id="firstName"
+                  type="text"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  required
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                />
               </div>
-
-              <button
-                onClick={importWallet}
-                disabled={isGeneratingWallet || !importedPrivateKey.trim()}
-                className={`w-full ${
-                  !importedPrivateKey.trim()
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-blue-600 hover:bg-blue-700"
-                } text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-150 ease-in-out`}
-              >
-                {isGeneratingWallet ? "Importing..." : "Import Wallet"}
-              </button>
-            </>
-          )}
-
-          {/* Skip Wallet Connection */}
-          {registrationMethod === "skip" && (
-            <>
-              <div className="mb-4 text-sm text-gray-700">
-                <p>
-                  You can skip connecting a wallet for now and add one later
-                  from your account settings.
-                </p>
+              <div>
+                <label
+                  htmlFor="lastName"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Last Name
+                </label>
+                <input
+                  id="lastName"
+                  type="text"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  required
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                />
               </div>
+            </div>
 
-              <button
-                onClick={skipWalletConnection}
-                className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-150 ease-in-out"
+            {/* Email Field */}
+            <div>
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-700 mb-1"
               >
-                Continue without Wallet
-              </button>
-            </>
-          )}
+                Email Address
+              </label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="you@example.com"
+              />
+            </div>
 
-          {/* Back to user info button */}
-          <div className="mt-6">
-            <button
-              onClick={() => setStep("userInfo")}
-              className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              Back to User Information
-            </button>
+            {/* Password Field */}
+            <div>
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="••••••••"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Must be at least 8 characters
+              </p>
+            </div>
+
+            {/* Confirm Password Field */}
+            <div>
+              <label
+                htmlFor="confirmPassword"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Confirm Password
+              </label>
+              <input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="••••••••"
+              />
+            </div>
+
+            {/* Submit Button */}
+            <div className="pt-4">
+              <button
+                type="submit"
+                disabled={isRegistering}
+                className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                  isRegistering ? "opacity-70 cursor-not-allowed" : ""
+                }`}
+              >
+                {isRegistering ? "Creating Account..." : "Create Account"}
+              </button>
+            </div>
+
+            {/* Sign In Link */}
+            <div className="mt-4 text-center">
+              <p className="text-sm text-gray-600">
+                Already have an account?{" "}
+                <Link
+                  to="/login"
+                  className="font-medium text-blue-600 hover:text-blue-500"
+                >
+                  Sign in
+                </Link>
+              </p>
+            </div>
+          </form>
+        )}
+
+        {/* Step 2: Wallet Connection */}
+        {step === "wallet" && (
+          <div>
+            <p className="mb-4 text-gray-700">
+              Connect or create a wallet to use with Votereum. This will allow
+              you to vote securely on the blockchain.
+            </p>
+
+            {/* Registration Method Selector */}
+            <div className="mb-6">
+              <div className="flex flex-wrap gap-2 mb-4">
+                <button
+                  onClick={() => setRegistrationMethod("metamask")}
+                  className={`px-3 py-2 text-sm font-medium rounded-md ${
+                    registrationMethod === "metamask"
+                      ? "bg-blue-100 text-blue-700 border-blue-200 border"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  MetaMask
+                </button>
+                <button
+                  onClick={() => setRegistrationMethod("generate")}
+                  className={`px-3 py-2 text-sm font-medium rounded-md ${
+                    registrationMethod === "generate"
+                      ? "bg-blue-100 text-blue-700 border-blue-200 border"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  Generate New Wallet
+                </button>
+                <button
+                  onClick={() => setRegistrationMethod("import")}
+                  className={`px-3 py-2 text-sm font-medium rounded-md ${
+                    registrationMethod === "import"
+                      ? "bg-blue-100 text-blue-700 border-blue-200 border"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  Import Private Key
+                </button>
+                <button
+                  onClick={() => setRegistrationMethod("skip")}
+                  className={`px-3 py-2 text-sm font-medium rounded-md ${
+                    registrationMethod === "skip"
+                      ? "bg-blue-100 text-blue-700 border-blue-200 border"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  Skip for Now
+                </button>
+              </div>
+            </div>
+
+            {/* MetaMask Connection */}
+            {registrationMethod === "metamask" && (
+              <>
+                {isMetaMaskInstalled === false && (
+                  <div className="mb-6">
+                    <div
+                      className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4"
+                      role="alert"
+                    >
+                      <p className="font-bold">MetaMask is not installed</p>
+                      <p>
+                        You need MetaMask to interact with this application.
+                      </p>
+                    </div>
+
+                    <a
+                      href="https://metamask.io/download/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded flex justify-center items-center mb-4"
+                    >
+                      Download MetaMask
+                    </a>
+
+                    <ol className="list-decimal list-inside text-sm text-gray-700 mb-4 space-y-2">
+                      <li>Install the MetaMask browser extension</li>
+                      <li>Create a new wallet or import an existing one</li>
+                      <li>
+                        Connect to the Ganache network (Chain ID: 1337, RPC URL:
+                        http://127.0.0.1:8545)
+                      </li>
+                      <li>Import a Ganache account using its private key</li>
+                      <li>Refresh this page</li>
+                    </ol>
+                  </div>
+                )}
+
+                <button
+                  onClick={handleConnectWallet}
+                  disabled={isConnecting || isMetaMaskInstalled === false}
+                  className={`w-full ${
+                    isMetaMaskInstalled === false
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-blue-600 hover:bg-blue-700"
+                  } text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-150 ease-in-out`}
+                >
+                  {isConnecting ? "Connecting..." : "Connect MetaMask"}
+                </button>
+
+                {isMetaMaskInstalled && (
+                  <div className="mt-4 text-sm text-gray-600">
+                    <p>
+                      Click the button above to connect your MetaMask wallet.
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
