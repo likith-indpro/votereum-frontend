@@ -1,15 +1,16 @@
 import { useState, useEffect } from "react";
-import { getCandidates, voteForCandidate } from "../utils/contract";
+import { getCandidates } from "../utils/contract";
+import { voteForCandidate } from "../utils/contract";
 
-interface Candidate {
-  id: number;
-  name: string;
-  voteCount: number;
-}
+// interface Candidate {
+//   id: number;
+//   name: string;
+//   voteCount: number;
+// }
 
-interface VoteProps {
-  walletAddress: string;
-}
+// interface VoteProps {
+//   walletAddress: string;
+// }
 
 const Vote = ({ walletAddress }: VoteProps) => {
   const [candidates, setCandidates] = useState<Candidate[]>([]);

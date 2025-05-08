@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { electionsAPI, type Election } from "../utils/api";
+import CreateElectionModal from "../components/CreateElectionModal";
+import AddCandidateModal from "../components/AddCandidateModal";
 
 // Interface for our frontend election model
 interface ElectionWithStatus extends Omit<Election, "status"> {
@@ -35,6 +37,14 @@ const Elections = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const currentDate = new Date();
+
+  // State for modals
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isAddCandidateModalOpen, setIsAddCandidateModalOpen] = useState(false);
+  const [selectedElection, setSelectedElection] = useState<{
+    id: string;
+    blockchainElectionId: number;
+  } | null>(null);
 
   // Fetch elections from the backend
   useEffect(() => {
@@ -168,7 +178,10 @@ const Elections = () => {
             Completed
           </button>
         </div>
-        <button className="px-4 py-2 bg-[#66B0FF] hover:bg-[#5AA0EF] text-white rounded-md text-sm font-medium transition-colors flex items-center">
+        <button
+          onClick={() => setIsCreateModalOpen(true)}
+          className="px-4 py-2 bg-[#66B0FF] hover:bg-[#5AA0EF] text-white rounded-md text-sm font-medium transition-colors flex items-center"
+        >
           <svg
             className="w-4 h-4 mr-2"
             fill="none"
@@ -288,22 +301,46 @@ const Elections = () => {
                 </div>
               </div>
 
-              <div className="mt-6 flex justify-end">
+              <div className="mt-6 flex justify-between">
+                {/* Add Candidate Button */}
+                {election.status === "upcoming" && (
+                  <button
+                    onClick={() => {
+                      setSelectedElection({
+                        id: election.id,
+                        blockchainElectionId: parseInt(
+                          election.smart_contract_address
+                        ),
+                      });
+                      setIsAddCandidateModalOpen(true);
+                    }}
+                    className="px-4 py-2 rounded-md text-white text-sm font-medium transition-colors bg-green-500 hover:bg-green-600"
+                  >
+                    Add Candidate
+                  </button>
+                )}
+
                 {election.status === "active" ? (
-                  <Link to={`/vote?election=${election.id}`}>
+                  <Link
+                    to={`/vote?election=${election.id}`}
+                    className="ml-auto"
+                  >
                     <button className="px-4 py-2 rounded-md text-white text-sm font-medium transition-colors bg-[#66B0FF] hover:bg-[#5AA0EF]">
                       Vote Now
                     </button>
                   </Link>
                 ) : election.status === "upcoming" ? (
                   <button
-                    className="px-4 py-2 rounded-md text-white text-sm font-medium bg-gray-300 cursor-not-allowed"
+                    className="px-4 py-2 rounded-md text-white text-sm font-medium bg-gray-300 cursor-not-allowed ml-auto"
                     disabled
                   >
                     Coming Soon
                   </button>
                 ) : (
-                  <Link to={`/results?election=${election.id}`}>
+                  <Link
+                    to={`/results?election=${election.id}`}
+                    className="ml-auto"
+                  >
                     <button className="px-4 py-2 rounded-md text-white text-sm font-medium transition-colors bg-gray-500 hover:bg-gray-600">
                       View Results
                     </button>
@@ -342,6 +379,37 @@ const Elections = () => {
             the moment.
           </p>
         </div>
+      )}
+
+      {/* Create Election Modal */}
+      {isCreateModalOpen && (
+        <CreateElectionModal
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          onElectionCreated={(newElection) => {
+            setElections((prevElections) => [...prevElections, newElection]);
+            setIsCreateModalOpen(false);
+          }}
+        />
+      )}
+
+      {/* Add Candidate Modal */}
+      {isAddCandidateModalOpen && selectedElection && (
+        <AddCandidateModal
+          isOpen={isAddCandidateModalOpen}
+          onClose={() => setIsAddCandidateModalOpen(false)}
+          electionId={selectedElection.id}
+          blockchainElectionId={selectedElection.blockchainElectionId}
+          onCandidateAdded={(candidate) => {
+            setElections((prevElections) =>
+              prevElections.map((election) =>
+                election.id === selectedElection.id
+                  ? { ...election, candidates: election.candidates + 1 }
+                  : election
+              )
+            );
+          }}
+        />
       )}
     </motion.div>
   );

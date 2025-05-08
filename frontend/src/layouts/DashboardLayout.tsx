@@ -24,6 +24,7 @@ const DashboardLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { authState, signOut, linkWallet } = useAuth();
+  const [pageTitle, setPageTitle] = useState("Dashboard");
 
   // Get user information from auth context
   const { user } = authState;
@@ -62,6 +63,17 @@ const DashboardLayout = () => {
       icon: <Cog6ToothIcon className="w-5 h-5" />,
     },
   ];
+
+  // Update page title based on current path
+  useEffect(() => {
+    const currentPath = location.pathname;
+    const allNavItems = [...navItems, ...bottomNavItems];
+    const currentNav = allNavItems.find((item) => item.path === currentPath);
+    if (currentNav) {
+      setPageTitle(currentNav.name);
+      document.title = `${currentNav.name} | Votereum`;
+    }
+  }, [location.pathname]);
 
   // Handle user logout
   const handleLogout = async () => {
@@ -295,6 +307,9 @@ const DashboardLayout = () => {
         {/* Content */}
         <main className="flex-1 overflow-y-auto bg-gray-50 px-4 py-8 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+              {pageTitle}
+            </h2>
             <Outlet />
           </div>
         </main>
