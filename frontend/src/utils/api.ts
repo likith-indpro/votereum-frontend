@@ -255,6 +255,53 @@ export const electionsAPI = {
       return false;
     }
   },
+  // Create a new election
+  createElection: async (electionData: Partial<Election>) => {
+    try {
+      if (!apiClient) {
+        await electionsAPI.init();
+      }
+
+      if (apiClient) {
+        const response = await apiClient.post("/items/elections", {
+          ...electionData,
+          status: "published",
+        });
+        return response.data.data;
+      }
+
+      // Fallback if no API client
+      console.log("Mock creating election:", electionData);
+      return { ...electionData, id: "mock-election-" + Date.now() };
+    } catch (error) {
+      console.error("Error creating election:", error);
+      throw error;
+    }
+  },
+
+  // Create a new candidate
+  createCandidate: async (candidateData: Partial<Candidate>) => {
+    try {
+      if (!apiClient) {
+        await electionsAPI.init();
+      }
+
+      if (apiClient) {
+        const response = await apiClient.post("/items/candidates", {
+          ...candidateData,
+          status: "published",
+        });
+        return response.data.data;
+      }
+
+      // Fallback if no API
+      console.log("Mock creating candidate:", candidateData);
+      return { ...candidateData, id: "mock-candidate-" + Date.now() };
+    } catch (error) {
+      console.error("Error creating candidate:", error);
+      throw error;
+    }
+  },
 
   // Get all elections with optional filters
   getElections: async (filters?: any) => {
@@ -413,6 +460,54 @@ export const electionsAPI = {
         error
       );
       return false;
+    }
+  },
+
+  // Update an existing election
+  updateElection: async (id: string, updateData: Partial<Election>) => {
+    try {
+      if (!apiClient) {
+        await electionsAPI.init();
+      }
+
+      if (apiClient) {
+        const response = await apiClient.patch(
+          `/items/elections/${id}`,
+          updateData
+        );
+        return response.data.data;
+      }
+
+      // Fallback if no API client
+      console.log("Mock updating election:", id, updateData);
+      return { id, ...updateData };
+    } catch (error) {
+      console.error(`Error updating election ${id}:`, error);
+      throw error;
+    }
+  },
+
+  // Update a candidate
+  updateCandidate: async (id: string, updateData: Partial<Candidate>) => {
+    try {
+      if (!apiClient) {
+        await electionsAPI.init();
+      }
+
+      if (apiClient) {
+        const response = await apiClient.patch(
+          `/items/candidates/${id}`,
+          updateData
+        );
+        return response.data.data;
+      }
+
+      // Fallback if no API client
+      console.log("Mock updating candidate:", id, updateData);
+      return { id, ...updateData };
+    } catch (error) {
+      console.error(`Error updating candidate ${id}:`, error);
+      throw error;
     }
   },
 };
