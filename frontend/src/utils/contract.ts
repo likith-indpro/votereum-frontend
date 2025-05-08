@@ -296,16 +296,55 @@ export const createElection = async (
   enforceKYC: boolean
 ) => {
   try {
+    console.log("createElection called with:", {
+      title,
+      description,
+      startTime,
+      endTime,
+      minimumAge,
+      maxVotesPerUser,
+      enforceKYC,
+    });
+
     // Ensure we have a signer
     if (!signer) {
-      await connectWallet();
+      console.log("No signer found, attempting to connect wallet");
+      try {
+        const walletResult = await connectWallet();
+        console.log("Wallet connected successfully:", walletResult.address);
+      } catch (walletError) {
+        console.error("Failed to connect wallet:", walletError);
+        throw new Error(`Wallet connection failed: ${walletError.message}`);
+      }
     }
 
     if (!factoryContract) {
-      throw new Error(
-        "Factory contract not initialized. Please connect your wallet first."
+      console.error("Factory contract is null, attempting to initialize");
+      if (!provider) {
+        await connectProvider();
+      }
+
+      if (!signer) {
+        throw new Error(
+          "Signer is still not available even after connecting wallet"
+        );
+      }
+
+      // Reinitialize the factory contract
+      factoryContract = new ethers.Contract(
+        factoryAddress,
+        VotereumFactoryAbi.abi,
+        signer
       );
+
+      if (!factoryContract) {
+        throw new Error("Failed to initialize factory contract");
+      }
+
+      console.log("Factory contract initialized successfully");
     }
+
+    console.log("Calling createElection on contract:", factoryAddress);
 
     // Call the createElection function on the factory contract
     const tx = await factoryContract.createElection(
@@ -318,8 +357,12 @@ export const createElection = async (
       enforceKYC
     );
 
+    console.log("Transaction submitted:", tx.hash);
+
     // Wait for the transaction to be mined
+    console.log("Waiting for transaction confirmation...");
     const receipt = await tx.wait();
+    console.log("Transaction confirmed:", receipt);
 
     // Try to get the election ID from the event logs
     let electionId;
@@ -330,6 +373,9 @@ export const createElection = async (
       if (eventLog) {
         // Parse the election ID from the event
         electionId = Number(ethers.toNumber(eventLog.topics[1]));
+        console.log("Election ID parsed:", electionId);
+      } else {
+        console.log("Could not find ElectionCreated event in logs");
       }
     }
 

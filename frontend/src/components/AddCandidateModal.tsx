@@ -87,29 +87,62 @@ const AddCandidateModal: React.FC<AddCandidateModalProps> = ({
         throw new Error("Please connect your wallet to continue");
       }
 
-      // Add the candidate to the blockchain
-      const result = await addCandidate(
-        blockchainElectionId,
-        name,
-        description
-      );
-
-      console.log("Candidate added on blockchain:", result);
-
-      // Also add to the backend database
+      // First save to the backend
+      console.log("Adding candidate to backend first...");
       const backendCandidate = await electionsAPI.createCandidate({
         name,
         description,
         election_id: electionId,
-        blockchain_tx_hash: result.transactionHash,
-        status: "published",
+        blockchain_tx_hash: "pending",
+        status: "pending",
       });
 
-      // Notify parent component
+      console.log("Candidate added to backend:", backendCandidate);
+
+      // Notify parent component about the new candidate (status pending)
       onCandidateAdded(backendCandidate);
 
-      // Close modal
+      // Close modal immediately after backend creation
       handleClose();
+
+      // Then initiate blockchain transaction in the background
+      console.log("Adding candidate to blockchain in background...");
+
+      try {
+        // Add the candidate to the blockchain
+        addCandidate(blockchainElectionId, name, description)
+          .then(async (result) => {
+            console.log("Candidate added on blockchain:", result);
+
+            // Update backend with transaction details
+            await electionsAPI.updateCandidate(backendCandidate.id, {
+              blockchain_tx_hash: result.transactionHash,
+              status: "published",
+            });
+
+            console.log("Candidate updated with blockchain info");
+          })
+          .catch(async (error) => {
+            console.error("Blockchain transaction failed:", error);
+
+            // Update backend with error status
+            await electionsAPI.updateCandidate(backendCandidate.id, {
+              blockchain_tx_hash: "failed",
+              status: "error",
+            });
+          });
+      } catch (blockchainError) {
+        console.error(
+          "Error initiating blockchain transaction:",
+          blockchainError
+        );
+
+        // Update backend with error status
+        await electionsAPI.updateCandidate(backendCandidate.id, {
+          blockchain_tx_hash: "failed_to_start",
+          status: "error",
+        });
+      }
     } catch (err: any) {
       console.error("Error adding candidate:", err);
       setError(err.message || "Failed to add candidate. Please try again.");

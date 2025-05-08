@@ -105,41 +105,84 @@ const CreateElectionModal: React.FC<CreateElectionModalProps> = ({
         throw new Error("End date must be after start date");
       }
 
-      // Create the election on the blockchain
-      const result = await createElection(
-        title,
-        description,
-        startTimestamp,
-        endTimestamp,
-        minimumAge,
-        maxVotesPerUser,
-        enforceKYC
-      );
-
-      console.log("Election created on blockchain:", result);
-
-      // Also create in the backend database
+      // 1. Create election in the backend first
+      console.log("Creating election in backend first...");
       const backendElection = await electionsAPI.createElection({
         title,
         description,
         start_date: new Date(startDate).toISOString(),
         end_date: new Date(endDate).toISOString(),
-        smart_contract_address: result.electionId?.toString() || "pending",
-        status: "published",
-        blockchain_tx_hash: result.transactionHash,
+        smart_contract_address: "pending", // We'll update this later
+        status: "pending", // Mark as pending until blockchain confirms
+        blockchain_tx_hash: "pending",
         minimum_age: minimumAge,
         max_votes_per_user: maxVotesPerUser,
         enforce_kyc: enforceKYC,
       });
 
-      // Notify parent component
+      console.log("Election created in backend:", backendElection);
+
+      // 2. Notify parent component that election is created (but pending blockchain)
       onElectionCreated({
         ...backendElection,
-        blockchainElectionId: result.electionId,
+        status: "pending",
       });
 
-      // Close modal
+      // 3. Start blockchain transaction in background
+      console.log("Starting blockchain transaction in background...");
+
+      // Close modal immediately after backend creation
       handleClose();
+
+      // Explicitly connect wallet first
+      try {
+        await connectWallet();
+        console.log("Wallet connected successfully before creating election");
+
+        // Initiate blockchain transaction without waiting for it to complete
+        createElection(
+          title,
+          description,
+          startTimestamp,
+          endTimestamp,
+          minimumAge,
+          maxVotesPerUser,
+          enforceKYC
+        )
+          .then(async (result) => {
+            console.log("Blockchain transaction completed:", result);
+
+            // Update the backend with blockchain transaction info
+            await electionsAPI.updateElection(backendElection.id, {
+              smart_contract_address: result.electionId?.toString() || "error",
+              status: "published",
+              blockchain_tx_hash: result.transactionHash,
+            });
+
+            console.log("Election updated with blockchain info");
+
+            // No need to refresh the page - this will happen in the background
+          })
+          .catch(async (error) => {
+            console.error("Blockchain transaction failed:", error);
+
+            // Update the backend to mark the transaction as failed
+            await electionsAPI.updateElection(backendElection.id, {
+              status: "error",
+              blockchain_tx_hash: "failed",
+            });
+          });
+      } catch (walletError) {
+        console.error(
+          "Error connecting wallet for blockchain transaction:",
+          walletError
+        );
+        // The election is still created in backend, but marked with error
+        await electionsAPI.updateElection(backendElection.id, {
+          status: "error",
+          blockchain_tx_hash: "wallet_connection_failed",
+        });
+      }
     } catch (err: any) {
       console.error("Error creating election:", err);
       setError(err.message || "Failed to create election. Please try again.");
