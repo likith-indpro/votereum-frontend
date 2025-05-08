@@ -1,29 +1,25 @@
 import { useState, useEffect } from "react";
-import {
-  hasVotedInElection,
-  voteInElection,
-  getElectionCandidates,
-} from "../utils/contract";
 import { electionsAPI } from "../utils/api";
+import integrationService from "../utils/integrationService";
+import * as contractUtils from "../utils/contract";
 
 interface Candidate {
   id: number;
   name: string;
+  party?: string;
   description?: string;
   voteCount: number;
+  imageUrl?: string;
+  databaseId?: string; // Store database ID for votes
 }
 
 interface VoteProps {
   walletAddress: string;
   electionId: string;
-  blockchainElectionId: number;
+  electionAddress: string;
 }
 
-const Vote = ({
-  walletAddress,
-  electionId,
-  blockchainElectionId,
-}: VoteProps) => {
+const Vote = ({ walletAddress, electionId, electionAddress }: VoteProps) => {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,21 +33,18 @@ const Vote = ({
   useEffect(() => {
     loadCandidates();
     checkIfUserHasVoted();
-  }, [electionId, blockchainElectionId, walletAddress]);
+  }, [electionId, electionAddress, walletAddress]);
 
   const checkIfUserHasVoted = async () => {
     try {
-      // Check if the user has already voted in this election
-      if (isNaN(blockchainElectionId) || blockchainElectionId <= 0) {
-        console.log(
-          "Invalid blockchain election ID. Cannot check if user has voted."
-        );
+      if (!walletAddress || !electionAddress) {
         return;
       }
 
-      const voted = await hasVotedInElection(
-        walletAddress,
-        blockchainElectionId
+      // Check if the user has already voted in this election
+      const voted = await contractUtils.hasVoted(
+        electionAddress,
+        walletAddress
       );
       setHasVoted(voted);
 
@@ -68,40 +61,27 @@ const Vote = ({
       setIsLoading(true);
       setError(null);
 
-      // Try to get candidates from the blockchain first
-      let candidateList: Candidate[] = [];
+      // Get candidates from the blockchain
+      const blockchainCandidates =
+        await contractUtils.getElectionCandidates(electionAddress);
 
-      if (!isNaN(blockchainElectionId) && blockchainElectionId > 0) {
-        try {
-          candidateList = await getElectionCandidates(blockchainElectionId);
-          console.log("Candidates loaded from blockchain:", candidateList);
-        } catch (blockchainErr) {
-          console.error(
-            "Error loading candidates from blockchain:",
-            blockchainErr
-          );
-        }
-      }
+      // Get candidates from database for correlation
+      const dbCandidates = await electionsAPI.getCandidates(electionId);
 
-      // If no candidates were found on the blockchain or there was an error,
-      // fall back to getting them from the backend
-      if (candidateList.length === 0) {
-        console.log(
-          "Loading candidates from backend for election:",
-          electionId
+      // Match blockchain candidates with database candidates
+      const enhancedCandidates = blockchainCandidates.map((bc) => {
+        // Find the matching database candidate by name (assuming name is unique)
+        const dbMatch = dbCandidates.find(
+          (db) => db.name.toLowerCase() === bc.name.toLowerCase()
         );
-        const backendCandidates = await electionsAPI.getCandidates(electionId);
 
-        // Transform backend candidates to match the Candidate interface
-        candidateList = backendCandidates.map((candidate: any) => ({
-          id: parseInt(candidate.id),
-          name: candidate.name,
-          description: candidate.description,
-          voteCount: 0, // Backend doesn't have vote counts
-        }));
-      }
+        return {
+          ...bc,
+          databaseId: dbMatch?.id, // Add database ID if found
+        };
+      });
 
-      setCandidates(candidateList);
+      setCandidates(enhancedCandidates);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to load candidates"
@@ -124,24 +104,29 @@ const Vote = ({
       setVotingSuccess(false);
       setSelectedCandidate(candidateId);
 
-      if (isNaN(blockchainElectionId) || blockchainElectionId <= 0) {
-        throw new Error("Invalid election. Cannot process vote.");
+      // Find the candidate to get the database ID
+      const candidate = candidates.find((c) => c.id === candidateId);
+
+      if (!candidate) {
+        throw new Error("Selected candidate not found");
       }
 
-      // Vote on the blockchain
-      const result = await voteInElection(blockchainElectionId, candidateId);
-      console.log("Vote transaction result:", result);
+      if (!candidate.databaseId) {
+        console.warn(
+          "Database ID for candidate not found, proceeding with blockchain vote only"
+        );
+      }
 
-      // Record the vote in the backend
-      await electionsAPI.recordVote({
-        election_id: electionId,
-        candidate_id: candidateId.toString(),
-        voter_address: walletAddress,
-        tx_hash: result.transactionHash,
-        vote_type: "smart_contract",
-        validity: true,
-        block_number: 0, // This would be updated with the actual block number if available
-      });
+      // Vote using the integration service
+      const result = await integrationService.castVote(
+        electionId,
+        electionAddress,
+        candidateId,
+        candidate.databaseId || candidateId.toString(), // Fallback to candidate ID if no database ID
+        walletAddress
+      );
+
+      console.log("Vote transaction result:", result);
 
       // Show success message
       setVotingSuccess(true);

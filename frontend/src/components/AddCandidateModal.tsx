@@ -1,17 +1,13 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import {
-  addCandidate,
-  connectWallet,
-  getCurrentWalletAddress,
-} from "../utils/contract";
-import { electionsAPI } from "../utils/api";
+import { connectWallet, getCurrentWalletAddress } from "../utils/contract";
+import integrationService from "../utils/integrationService";
 
 interface AddCandidateModalProps {
   isOpen: boolean;
   onClose: () => void;
   electionId: string;
-  blockchainElectionId: number;
+  electionAddress: string;
   onCandidateAdded: (candidateData: any) => void;
 }
 
@@ -19,11 +15,12 @@ const AddCandidateModal: React.FC<AddCandidateModalProps> = ({
   isOpen,
   onClose,
   electionId,
-  blockchainElectionId,
+  electionAddress,
   onCandidateAdded,
 }) => {
   const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
+  const [party, setParty] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState("");
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
@@ -65,7 +62,8 @@ const AddCandidateModal: React.FC<AddCandidateModalProps> = ({
   // Reset form when modal closes
   const handleClose = () => {
     setName("");
-    setDescription("");
+    setParty("");
+    setImageUrl("");
     setError("");
     onClose();
   };
@@ -78,8 +76,8 @@ const AddCandidateModal: React.FC<AddCandidateModalProps> = ({
 
     try {
       // Validate form
-      if (!name || !description) {
-        throw new Error("Please fill all required fields");
+      if (!name || !party) {
+        throw new Error("Please fill required fields (name and party)");
       }
 
       // Check if wallet is connected
@@ -87,62 +85,23 @@ const AddCandidateModal: React.FC<AddCandidateModalProps> = ({
         throw new Error("Please connect your wallet to continue");
       }
 
-      // First save to the backend
-      console.log("Adding candidate to backend first...");
-      const backendCandidate = await electionsAPI.createCandidate({
+      // Add candidate using the integration service
+      console.log("Adding candidate via integration service...");
+      const result = await integrationService.addCandidate(
+        electionId,
+        electionAddress,
         name,
-        description,
-        election_id: electionId,
-        blockchain_tx_hash: "pending",
-        status: "pending",
-      });
+        party,
+        imageUrl || "https://via.placeholder.com/150" // Default image if none provided
+      );
 
-      console.log("Candidate added to backend:", backendCandidate);
+      console.log("Candidate added successfully:", result);
 
-      // Notify parent component about the new candidate (status pending)
-      onCandidateAdded(backendCandidate);
+      // Notify parent component about the new candidate
+      onCandidateAdded(result);
 
-      // Close modal immediately after backend creation
+      // Close modal
       handleClose();
-
-      // Then initiate blockchain transaction in the background
-      console.log("Adding candidate to blockchain in background...");
-
-      try {
-        // Add the candidate to the blockchain
-        addCandidate(blockchainElectionId, name, description)
-          .then(async (result) => {
-            console.log("Candidate added on blockchain:", result);
-
-            // Update backend with transaction details
-            await electionsAPI.updateCandidate(backendCandidate.id, {
-              blockchain_tx_hash: result.transactionHash,
-              status: "published",
-            });
-
-            console.log("Candidate updated with blockchain info");
-          })
-          .catch(async (error) => {
-            console.error("Blockchain transaction failed:", error);
-
-            // Update backend with error status
-            await electionsAPI.updateCandidate(backendCandidate.id, {
-              blockchain_tx_hash: "failed",
-              status: "error",
-            });
-          });
-      } catch (blockchainError) {
-        console.error(
-          "Error initiating blockchain transaction:",
-          blockchainError
-        );
-
-        // Update backend with error status
-        await electionsAPI.updateCandidate(backendCandidate.id, {
-          blockchain_tx_hash: "failed_to_start",
-          status: "error",
-        });
-      }
     } catch (err: any) {
       console.error("Error adding candidate:", err);
       setError(err.message || "Failed to add candidate. Please try again.");
@@ -214,21 +173,41 @@ const AddCandidateModal: React.FC<AddCandidateModalProps> = ({
             />
           </div>
 
-          <div className="mb-6">
+          <div className="mb-4">
             <label
-              htmlFor="description"
+              htmlFor="party"
               className="block text-sm font-medium text-gray-700 mb-1"
             >
-              Description*
+              Party or Affiliation*
             </label>
-            <textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+            <input
+              id="party"
+              type="text"
+              value={party}
+              onChange={(e) => setParty(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              rows={3}
               required
             />
+          </div>
+
+          <div className="mb-6">
+            <label
+              htmlFor="imageUrl"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Profile Image URL
+            </label>
+            <input
+              id="imageUrl"
+              type="text"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              placeholder="https://example.com/image.jpg"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Leave blank for a default placeholder image
+            </p>
           </div>
 
           <div className="flex justify-end space-x-2">
@@ -289,26 +268,29 @@ const AddCandidateModal: React.FC<AddCandidateModalProps> = ({
               disabled={isConnecting}
             >
               {isConnecting ? (
-                <svg
-                  className="animate-spin -ml-1 mr-2 h-5 w-5 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
+                <>
+                  <svg
+                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Connecting...
+                </>
               ) : (
                 "Connect Wallet"
               )}

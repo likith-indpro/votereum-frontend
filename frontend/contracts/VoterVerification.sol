@@ -28,7 +28,9 @@ contract VoterVerification is Ownable {
     /**
      * @dev Constructor sets the owner of the contract
      */
-    constructor(address _owner) Ownable(_owner) {
+    constructor(address _owner) {
+        // Set the contract owner
+        transferOwnership(_owner);
     }
 
     /**

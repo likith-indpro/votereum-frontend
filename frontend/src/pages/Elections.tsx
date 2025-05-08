@@ -5,10 +5,9 @@ import { electionsAPI, type Election } from "../utils/api";
 import CreateElectionModal from "../components/CreateElectionModal";
 import AddCandidateModal from "../components/AddCandidateModal";
 import {
-  startElection,
-  endElection,
   getCurrentWalletAddress,
 } from "../utils/contract";
+import integrationService from "../utils/integrationService";
 
 // Interface for our frontend election model
 interface ElectionWithStatus extends Omit<Election, "status"> {
@@ -242,16 +241,14 @@ const Elections = () => {
       setIsUpdatingStatus((prev) => ({ ...prev, [election.id]: true }));
       setUpdateError((prev) => ({ ...prev, [election.id]: "" }));
 
-      // Check if the blockchain election ID is valid
-      const blockchainElectionId = parseInt(election.smart_contract_address);
-
+      // Check if the smart contract address is valid
       if (
-        isNaN(blockchainElectionId) ||
+        !election.smart_contract_address ||
         election.smart_contract_address === "pending"
       ) {
-        // If the blockchain ID is not valid, we can only update the status in the backend
+        // If the blockchain address is not valid, we can only update the status in the backend
         console.log(
-          "Election has no valid blockchain ID yet. Updating only in backend."
+          "Election has no valid blockchain address yet. Updating only in backend."
         );
 
         // Update the backend status without blockchain interaction
@@ -268,27 +265,38 @@ const Elections = () => {
 
         // Show a message to the user
         alert(
-          "Election started in the database. Note: This election doesn't have a valid blockchain ID yet, so it was only updated in the database."
+          "Election started in the database. Note: This election doesn't have a valid blockchain address yet, so it was only updated in the database."
         );
         return;
       }
 
-      // Call the blockchain method to start the election
-      const result = await startElection(blockchainElectionId);
-
-      if (result.success) {
-        // Update the backend status
-        await electionsAPI.updateElection(election.id, {
-          status: "published",
-        });
-
-        // Update local state
-        setElections((prev) =>
-          prev.map((e) =>
-            e.id === election.id ? { ...e, status: "active" } : e
-          )
-        );
+      // Calculate duration in minutes (assuming we have startDate and endDate)
+      // Default to 60 minutes if dates are not properly formatted
+      let durationInMinutes = 60;
+      try {
+        const startDateObj = new Date(election.start_date);
+        const endDateObj = new Date(election.end_date);
+        durationInMinutes = Math.floor((endDateObj.getTime() - startDateObj.getTime()) / (60 * 1000));
+        if (durationInMinutes <= 0) durationInMinutes = 60; // Fallback if calculation failed
+      } catch (err) {
+        console.warn("Failed to calculate election duration, using default 60 minutes", err);
       }
+      
+      // Call the integration service to start the election
+      const result = await integrationService.startElection(
+        election.id,
+        election.smart_contract_address,
+        durationInMinutes
+      );
+
+      // Update local state
+      setElections((prev) =>
+        prev.map((e) =>
+          e.id === election.id ? { ...e, status: "active" } : e
+        )
+      );
+      
+      console.log("Election started successfully:", result);
     } catch (err: any) {
       console.error(`Error starting election ${election.id}:`, err);
       setUpdateError((prev) => ({
@@ -311,27 +319,28 @@ const Elections = () => {
       setIsUpdatingStatus((prev) => ({ ...prev, [election.id]: true }));
       setUpdateError((prev) => ({ ...prev, [election.id]: "" }));
 
-      const blockchainElectionId = parseInt(election.smart_contract_address);
-      if (isNaN(blockchainElectionId)) {
-        throw new Error("Invalid blockchain election ID");
+      // Check if the smart contract address is valid
+      if (
+        !election.smart_contract_address ||
+        election.smart_contract_address === "pending"
+      ) {
+        throw new Error("Invalid blockchain election address");
       }
 
-      // Call the blockchain method to end the election
-      const result = await endElection(blockchainElectionId);
+      // Call the integration service to end the election
+      const result = await integrationService.endElection(
+        election.id,
+        election.smart_contract_address
+      );
 
-      if (result.success) {
-        // Update the backend status
-        await electionsAPI.updateElection(election.id, {
-          status: "published",
-        });
-
-        // Update local state
-        setElections((prev) =>
-          prev.map((e) =>
-            e.id === election.id ? { ...e, status: "completed" } : e
-          )
-        );
-      }
+      // Update local state
+      setElections((prev) =>
+        prev.map((e) =>
+          e.id === election.id ? { ...e, status: "completed" } : e
+        )
+      );
+      
+      console.log("Election ended successfully:", result);
     } catch (err: any) {
       console.error(`Error ending election ${election.id}:`, err);
       setUpdateError((prev) => ({
@@ -559,7 +568,7 @@ const Elections = () => {
             isOpen={isAddCandidateModalOpen}
             onClose={() => setIsAddCandidateModalOpen(false)}
             electionId={selectedElection.id}
-            blockchainElectionId={selectedElection.blockchainElectionId}
+            electionAddress={selectedElection.smart_contract_address || ""}
             onCandidateAdded={handleCandidateAdded}
           />
         )}

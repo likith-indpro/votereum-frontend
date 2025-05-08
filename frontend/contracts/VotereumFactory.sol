@@ -21,7 +21,8 @@ contract VotereumFactory is Ownable {
     /**
      * @dev Constructor sets the contract owner
      */
-    constructor() Ownable(msg.sender) {
+    constructor() {
+        // Ownable constructor is called implicitly with msg.sender as owner
     }
 
     /**

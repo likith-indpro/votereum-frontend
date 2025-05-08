@@ -6,7 +6,7 @@ import VotereumFactoryAbi from "../abi/VotereumFactory.json";
 const contractAddress = import.meta.env.VITE_CONTRACT_ADDRESS as string;
 const factoryAddress =
   (import.meta.env.VITE_FACTORY_ADDRESS as string) ||
-  "0xE35593f242bCCbeCB7F1AAD481901Ff3a28cCa59"; // Using the address from deployment.json as fallback
+  "0x5FbDB2315678afecb367f032d93F642f64180aa3"; // Updated with newly deployed factory address
 const ganacheNetwork =
   (import.meta.env.VITE_GANACHE_NETWORK as string) || "http://127.0.0.1:7545";
 
@@ -291,10 +291,7 @@ export const createElection = async (
   description: string
 ) => {
   try {
-    console.log("createElection called with:", {
-      title,
-      description
-    });
+    console.log("createElection called with:", { title, description });
 
     // Ensure we have a signer
     if (!signer) {
@@ -308,39 +305,52 @@ export const createElection = async (
       }
     }
 
-    if (!factoryContract) {
-      console.error("Factory contract is null, attempting to initialize");
-      if (!provider) {
-        await connectProvider();
-      }
-
-      if (!signer) {
-        throw new Error(
-          "Signer is still not available even after connecting wallet"
-        );
-      }
-
-      // Reinitialize the factory contract
-      factoryContract = new ethers.Contract(
-        factoryAddress,
-        VotereumFactoryAbi.abi,
-        signer
-      );
-
-      if (!factoryContract) {
-        throw new Error("Failed to initialize factory contract");
-      }
-
-      console.log("Factory contract initialized successfully");
+    if (!provider) {
+      await connectProvider();
     }
-
-    console.log("Calling createElection on contract:", factoryAddress);
-
-    // Call the createElection function on the factory contract
-    const tx = await factoryContract.createElection(
-      title,
-      description
+    
+    // Import the artifacts directly (just for this function to ensure correct ABI)
+    const factoryArtifact = await import("../artifacts/contracts/VotereumFactory.sol/VotereumFactory.json");
+    
+    // Create a fresh contract instance using the artifacts
+    const contract = new ethers.Contract(
+      factoryAddress,
+      factoryArtifact.abi,
+      signer
     );
+
+    console.log("Contract ABI functions:", Object.keys(contract.interface.functions));
+    console.log("Calling createElection on contract:", factoryAddress);
+    console.log("Using parameters:", { title, description });
+
+    // Call the function with the correct parameters - try both direct and function fragment approach
+    let tx;
+    try {
+      // Direct approach
+      tx = await contract.createElection(title, description);
+    } catch (directError) {
+      console.error("Direct call failed:", directError);
+      
+      try {
+        // Try with function selector
+        const functionFragment = contract.interface.getFunction("createElection(string,string)");
+        if (!functionFragment) {
+          throw new Error("createElection function not found in ABI");
+        }
+        
+        console.log("Using function fragment:", functionFragment.format());
+        tx = await contract[functionFragment.format()](title, description);
+      } catch (fragmentError) {
+        console.error("Function fragment call failed:", fragmentError);
+        
+        // Try a raw call as last resort
+        const data = contract.interface.encodeFunctionData("createElection", [title, description]);
+        tx = await signer.sendTransaction({
+          to: factoryAddress,
+          data
+        });
+      }
+    }
 
     console.log("Transaction submitted:", tx.hash);
 
@@ -353,20 +363,16 @@ export const createElection = async (
     let electionAddress;
     if (receipt && receipt.logs) {
       try {
-        // Find the ElectionCreated event
-        const abi = VotereumFactoryAbi.abi;
-        const iface = new ethers.Interface(abi);
-        
         for (const log of receipt.logs) {
           try {
-            const parsedLog = iface.parseLog({
+            const parsedLog = contract.interface.parseLog({
               topics: log.topics as string[],
               data: log.data
             });
             
             if (parsedLog && parsedLog.name === 'ElectionCreated') {
               electionAddress = parsedLog.args[0];
-              console.log("Election address parsed:", electionAddress);
+              console.log("Election address parsed from logs:", electionAddress);
               break;
             }
           } catch (e) {
@@ -413,8 +419,8 @@ export const addCandidate = async (
       signer
     );
 
-    // Call the addCandidate function on the Voting contract
-    const tx = await electionContract.addCandidate(
+    // Call the addCandidate function on the Voting contract using the explicit function signature
+    const tx = await electionContract["addCandidate(string,string,string)"](
       name,
       party,
       imageUrl
@@ -432,15 +438,15 @@ export const addCandidate = async (
       try {
         const abi = VotingAbi.abi;
         const iface = new ethers.Interface(abi);
-        
+
         for (const log of receipt.logs) {
           try {
             const parsedLog = iface.parseLog({
               topics: log.topics as string[],
-              data: log.data
+              data: log.data,
             });
-            
-            if (parsedLog && parsedLog.name === 'CandidateAdded') {
+
+            if (parsedLog && parsedLog.name === "CandidateAdded") {
               candidateId = Number(parsedLog.args[0]);
               console.log("Candidate ID parsed:", candidateId);
               break;
@@ -458,10 +464,13 @@ export const addCandidate = async (
     return {
       transactionHash: tx.hash,
       candidateId,
-      success: true
+      success: true,
     };
   } catch (error) {
-    console.error(`Error adding candidate to election at ${electionAddress}:`, error);
+    console.error(
+      `Error adding candidate to election at ${electionAddress}:`,
+      error
+    );
     throw error;
   }
 };
@@ -498,7 +507,7 @@ export const getElectionDetails = async (electionAddress: string) => {
       isActive,
       totalVotes: Number(totalVotes),
       candidateCount: Number(candidateCount),
-      hasEnded: await electionContract.hasEnded()
+      hasEnded: await electionContract.hasEnded(),
     };
   } catch (error) {
     console.error(
@@ -529,13 +538,14 @@ export const getElectionCandidates = async (electionAddress: string) => {
 
     // Loop through all candidates and retrieve their details
     for (let i = 1; i <= Number(candidateCount); i++) {
-      const [id, name, party, imageUrl, voteCount] = await electionContract.getCandidate(i);
+      const [id, name, party, imageUrl, voteCount] =
+        await electionContract.getCandidate(i);
       candidates.push({
         id: Number(id),
         name: name,
         party: party,
         imageUrl: imageUrl,
-        voteCount: Number(voteCount)
+        voteCount: Number(voteCount),
       });
     }
 
@@ -556,12 +566,13 @@ export const getAllElections = async () => {
       await connectProvider();
     }
 
-    const contract = factoryContract || 
+    const contract =
+      factoryContract ||
       new ethers.Contract(factoryAddress, VotereumFactoryAbi.abi, provider);
 
     // Get all deployed elections
     const deployedElections = await contract.getDeployedElections();
-    
+
     // Format the results
     return deployedElections;
   } catch (error) {
@@ -571,7 +582,10 @@ export const getAllElections = async () => {
 };
 
 // Check if a voter has voted in a specific election
-export const hasVoted = async (electionAddress: string, voterAddress: string) => {
+export const hasVoted = async (
+  electionAddress: string,
+  voterAddress: string
+) => {
   try {
     if (!provider) {
       await connectProvider();
@@ -586,43 +600,51 @@ export const hasVoted = async (electionAddress: string, voterAddress: string) =>
 
     // Get the voter information
     const voter = await electionContract.voters(voterAddress);
-    
+
     // Return whether the voter has already voted
     return voter.hasVoted;
   } catch (error) {
-    console.error(`Error checking if ${voterAddress} has voted in election at ${electionAddress}:`, error);
+    console.error(
+      `Error checking if ${voterAddress} has voted in election at ${electionAddress}:`,
+      error
+    );
     return false; // Assume not voted on error
   }
 };
 
 // Register a voter for a specific election
-export const registerVoter = async (electionAddress: string, voterAddress: string) => {
+export const registerVoter = async (
+  electionAddress: string,
+  voterAddress: string
+) => {
   try {
     // Ensure we have a signer
     if (!signer) {
       await connectWallet();
     }
-    
+
     // Create an instance of the Voting contract at the election address
     const electionContract = new ethers.Contract(
       electionAddress,
       VotingAbi.abi,
       signer
     );
-    
+
     // Register the voter
     const tx = await electionContract.registerVoter(voterAddress);
-    
+
     // Wait for the transaction to be mined
     const receipt = await tx.wait();
-    
+
     return { success: true, transactionHash: tx.hash };
   } catch (error) {
-    console.error(`Error registering voter ${voterAddress} for election at ${electionAddress}:`, error);
+    console.error(
+      `Error registering voter ${voterAddress} for election at ${electionAddress}:`,
+      error
+    );
     throw error;
   }
 };
-
 
 // Disconnect wallet
 export const disconnectWallet = () => {
@@ -635,6 +657,70 @@ export const disconnectWallet = () => {
   votingContract = undefined as any;
 
   return true;
+};
+
+// Vote in a specific election
+export const voteInElection = async (
+  electionAddress: string,
+  candidateId: number
+) => {
+  try {
+    // Ensure we have a signer
+    if (!signer) {
+      await connectWallet();
+    }
+    
+    console.log(`Voting for candidate ${candidateId} in election at ${electionAddress}`);
+    
+    // Create an instance of the Voting contract at the election address
+    const electionContract = new ethers.Contract(
+      electionAddress,
+      VotingAbi.abi,
+      signer
+    );
+    
+    // Debug info
+    console.log("Contract functions:", Object.keys(electionContract.interface.functions));
+    
+    // Find the castVote function in the ABI
+    const voteFn = electionContract.interface.getFunction("vote(uint256)") || 
+                  electionContract.interface.getFunction("castVote(uint256)");
+                  
+    if (!voteFn) {
+      throw new Error("Vote function not found in contract ABI");
+    }
+    
+    console.log("Found voting function in ABI:", voteFn.format());
+    
+    // Call the vote function - try both possible function names
+    let tx;
+    try {
+      if (electionContract.interface.hasFunction("vote(uint256)")) {
+        tx = await electionContract.vote(candidateId);
+      } else {
+        tx = await electionContract.castVote(candidateId);
+      }
+    } catch (callError) {
+      console.error("Error calling vote function:", callError);
+      
+      // If that fails, try with the explicit function name
+      tx = await electionContract["castVote(uint256)"](candidateId);
+    }
+    
+    console.log("Vote transaction submitted:", tx.hash);
+    
+    // Wait for the transaction to be mined
+    const receipt = await tx.wait();
+    console.log("Vote transaction confirmed:", receipt);
+    
+    return {
+      success: true,
+      transactionHash: tx.hash
+    };
+  } catch (error) {
+    console.error(`Error voting in election at ${electionAddress}:`, error);
+    throw error;
+  }
 };
 
 // Declare window.ethereum for TypeScript

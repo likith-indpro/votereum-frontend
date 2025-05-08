@@ -1,9 +1,11 @@
-// We require the Hardhat Runtime Environment explicitly here. This is optional
+// We import the Hardhat Runtime Environment explicitly here. This is optional
 // but useful for running the script in a standalone fashion through `node <script>`.
 //
 // When running the script with `npx hardhat run <script>` you'll find the Hardhat
 // Runtime Environment's members available in the global scope.
-const hre = require("hardhat");
+import pkg from 'hardhat';
+const { ethers } = pkg;
+import fs from "fs";
 
 async function main() {
   // Hardhat always runs the compile task when running scripts with its command
@@ -14,7 +16,7 @@ async function main() {
   // await hre.run('compile');
 
   // We get the contract factory for VotereumFactory
-  const VotereumFactory = await hre.ethers.getContractFactory("VotereumFactory");
+  const VotereumFactory = await ethers.getContractFactory("VotereumFactory");
   
   console.log("Deploying VotereumFactory...");
   const votereumFactory = await VotereumFactory.deploy();
@@ -23,11 +25,11 @@ async function main() {
   console.log("VotereumFactory deployed to:", await votereumFactory.getAddress());
 
   // Optional: Deploy VoterVerification contract directly
-  const VoterVerification = await hre.ethers.getContractFactory("VoterVerification");
+  const VoterVerification = await ethers.getContractFactory("VoterVerification");
   console.log("Deploying VoterVerification...");
   
   // Get the deployer address to use as owner
-  const [deployer] = await hre.ethers.getSigners();
+  const [deployer] = await ethers.getSigners();
   const voterVerification = await VoterVerification.deploy(deployer.address);
   
   await voterVerification.waitForDeployment();
@@ -52,7 +54,6 @@ async function main() {
   console.log("Total elections deployed:", electionCount.toString());
   
   // Save the contract addresses to a file for easy access from the frontend
-  const fs = require("fs");
   const contractAddresses = {
     VotereumFactory: await votereumFactory.getAddress(),
     VoterVerification: await voterVerification.getAddress(),

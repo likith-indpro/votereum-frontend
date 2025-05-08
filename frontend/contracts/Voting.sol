@@ -54,10 +54,13 @@ contract Voting is Ownable, ReentrancyGuard {
         string memory _electionName,
         string memory _electionDescription,
         address _owner
-    ) Ownable(_owner) {
+    ) {
         electionName = _electionName;
         electionDescription = _electionDescription;
         isActive = false;
+        
+        // Transfer ownership to the specified owner
+        transferOwnership(_owner);
     }
 
     /**
@@ -177,7 +180,10 @@ contract Voting is Ownable, ReentrancyGuard {
 
     /**
      * @dev Gets the election results (all candidates with vote counts)
-     * @return An array of candidate details with vote counts
+     * @return ids Array of candidate IDs
+     * @return names Array of candidate names
+     * @return parties Array of candidate parties
+     * @return voteCounts Array of vote counts
      */
     function getElectionResults() public view returns (
         uint256[] memory ids,
