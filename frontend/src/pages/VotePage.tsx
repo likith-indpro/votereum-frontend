@@ -33,19 +33,14 @@ const VotePage = () => {
       setIsLoading(true);
       const fetchedElections = await electionsAPI.getElections();
 
-      // Filter to only show active elections
-      const activeElections = fetchedElections.filter((election: any) => {
-        const startDate = new Date(election.start_date);
-        const endDate = new Date(election.end_date);
-        const now = new Date();
-        return now >= startDate && now <= endDate;
-      });
+      console.log("Fetched elections:", fetchedElections); // Debug log
 
-      setElections(activeElections);
+      // Show all elections - we'll fix active status display in the UI
+      setElections(fetchedElections);
 
       // If there's an election ID in the URL, select that election
       if (electionIdFromUrl) {
-        const electionFromUrl = activeElections.find(
+        const electionFromUrl = fetchedElections.find(
           (e: Election) => e.id === electionIdFromUrl
         );
         if (electionFromUrl) {
